@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import axios from "axios";
 import {
     Divider,
@@ -19,16 +19,15 @@ import {
 } from "@hubspot/ui-extensions";
 
 // Define the extension to be run within the Hubspot CRM
-hubspot.extend(({context, runServerlessFunction, actions}) => (
-    <Extension
-        context={context}
-        runServerless={runServerlessFunction}
-        sendAlert={actions.addAlert}
-    />
-));
+hubspot.extend(({context, runServerlessFunction, actions}) => (<Extension
+    context={context}
+    runServerless={runServerlessFunction}
+    sendAlert={actions.addAlert}
+    fetchProperties={actions.fetchCrmObjectProperties}
+/>));
 
 // Define the Extension component, taking in runServerless, context, & sendAlert as props
-const Extension = ({context, runServerless, sendAlert}) => {
+const Extension = ({context, runServerless, sendAlert, fetchProperties}) => {
 
     const [hasBuyer2, setHasBuyer2] = useState(false);
     const [buyerAddressSearch, setBuyerAddressSearch] = useState("");
@@ -40,6 +39,30 @@ const Extension = ({context, runServerless, sendAlert}) => {
     const [authenticateApiResponse, setAuthenticateApiResponse] = useState("");
     const [btnAuthenticateLoading, setBtnAuthenticateLoading] = useState("Authenticate with UAT Framework API");
 
+    const [developers, setDevelopers] = useState([]);
+    const [estates, setEstates] = useState([]);
+    const [displayCentre, setDisplayCentre] = useState([]);
+    const [facades, setFacades] = useState([]);
+    const [houseTypes, setHouseTypes] = useState([]);
+    const [promotionTypes, setPromotionTypes] = useState([]);
+    const [teams, setTeams] = useState([]);
+
+    useEffect(() => {
+
+        runServerless({name: "fetchDropdownOptions"}).then((resp) => {
+            if (resp.status === "SUCCESS") {
+                setDevelopers(resp.response.data.CRM?.p_developers_collection?.items || []);
+                setEstates(resp.response.data.CRM?.p_estates_collection?.items || []);
+                setDisplayCentre(resp.response.data.CRM?.p_display_centre_collection?.items || []);
+                setFacades(resp.response.data.CRM?.p_facades_collection?.items || []);
+                setHouseTypes(resp.response.data.CRM?.p_house_types_collection?.items || []);
+                setPromotionTypes(resp.response.data.CRM?.p_promotion_types_collection?.items || []);
+                setTeams(resp.response.data.CRM?.p_teams_collection?.items || []);
+            }
+        });
+    }, []);
+
+    const yesNoOptions = [{label: '--None--', value: ''}, {label: 'Yes', value: 'Yes'}, {label: 'No', value: 'No'},];
     const [buyer, setBuyer] = useState({
         Buyer_1_Given_Name: '',
         Buyer_1_Surname: '',
@@ -65,13 +88,13 @@ const Extension = ({context, runServerless, sendAlert}) => {
         Postcode: ''
 
     });
-
     const [development, setDevelopment] = useState({
         Development_Developer: '',
         Development_Developer_Desc: '',
         Development_Estate: '',
         Development_Estate_Desc: '',
         Development_Display_Centre: '',
+        Development_Display_Centre_Desc: '',
         Development_House_Type: '',
         Development_House_Type_Desc: '',
         Development_Size: '',
@@ -91,7 +114,6 @@ const Extension = ({context, runServerless, sendAlert}) => {
         Development_Address_Site_Start: '',
         Development_Address_Site_Land_Settlement: '',
     });
-
     const [depositDetails, setDepositDetails] = useState({
         Deposit_Who_Paying_Deposit: '',
         Deposit_Range: '',
@@ -109,54 +131,38 @@ const Extension = ({context, runServerless, sendAlert}) => {
         Deposit_Sales_Accept_Forecast: '', // Date
         Deposit_Comment: '',
     });
-
-
-
     const [systemDetails, setSystemDetails] = useState({
         System_Representative: '', //login user
         System_Company_Name: '',
     });
-
-    const yesNoOptions = [
-        { label: 'Yes', value: 'Yes' },
-        { label: 'No', value: 'No' },
-        { label: '--None--', value: '' },
-    ];
-    const KDRBOptions = [
-        { label: 'KDRB', value: 'KDRB' },
-        { label: 'Vacant Lot', value: 'Vacant Lot' },
-        { label: '--None--', value: '' },
-    ];
+    const KDRBOptions = [{label: 'KDRB', value: 'KDRB'}, {label: 'Vacant Lot', value: 'Vacant Lot'}, {
+        label: '--None--', value: ''
+    },];
+    const regionOptions = [{label: 'Melbourne Metro', value: 'Melbourne Metro'}, {
+        label: 'New South Wales', value: 'New South Wales'
+    }, {label: 'Queensland', value: 'Queensland'}, {label: 'Regional', value: 'Regional'}, {
+        label: 'South Australia', value: 'South Australia'
+    },];
     const [validationMessage, setValidationMessage] = useState({
-        Development_Address_Is_Land_Titled: '',
-        Development_Address_Is_KDRB_OR_Vacant: '',
+        Development_Address_Is_Land_Titled: '', Development_Address_Is_KDRB_OR_Vacant: '',
     });
     const [isValid, setIsValid] = useState({
-        Development_Address_Is_Land_Titled: true,
-        Development_Address_Is_KDRB_OR_Vacant: true,
+        Development_Address_Is_Land_Titled: true, Development_Address_Is_KDRB_OR_Vacant: true,
     });
-
-
     const handleBuyerChange = (field, val) => {
         setBuyer({
-            ...buyer,
-            [field]: val,
+            ...buyer, [field]: val,
         });
 
     }
-
     const handleDevelopmentChange = (field, val) => {
         setDevelopment({
-            ...development,
-            [field]: val,
+            ...development, [field]: val,
         });
     };
-
-
     const enterAddressManually = () => {
         setShowBuyerAddressFields(true);
     }
-
     const handleAddressSearch = async (searchValue) => {
 
         if (searchValue.length > 3) {
@@ -178,7 +184,6 @@ const Extension = ({context, runServerless, sendAlert}) => {
 
 
     };
-
     const sendFrameworkUATAPIAuthenticate = async () => {
 
         setBtnAuthenticateLoading("loading...");
@@ -189,7 +194,6 @@ const Extension = ({context, runServerless, sendAlert}) => {
         setBtnAuthenticateLoading("Authenticate with UAT Framework API");
 
     };
-
     const handleAddressSelect = async (placeId) => {
         try {
 
@@ -200,21 +204,11 @@ const Extension = ({context, runServerless, sendAlert}) => {
             });
             setIsAddressSelectedLoading(false);
             const addressDetails = response.result;
-            const streetNumber = addressDetails.address_components.find((comp) =>
-                comp.types.includes("street_number")
-            )?.long_name;
-            const streetName = addressDetails.address_components.find((comp) =>
-                comp.types.includes("route")
-            )?.long_name;
-            const suburb = addressDetails.address_components.find((comp) =>
-                comp.types.includes("locality")
-            )?.long_name;
-            const state = addressDetails.address_components.find((comp) =>
-                comp.types.includes("administrative_area_level_1")
-            )?.long_name;
-            const postcode = addressDetails.address_components.find((comp) =>
-                comp.types.includes("postal_code")
-            )?.long_name;
+            const streetNumber = addressDetails.address_components.find((comp) => comp.types.includes("street_number"))?.long_name;
+            const streetName = addressDetails.address_components.find((comp) => comp.types.includes("route"))?.long_name;
+            const suburb = addressDetails.address_components.find((comp) => comp.types.includes("locality"))?.long_name;
+            const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.long_name;
+            const postcode = addressDetails.address_components.find((comp) => comp.types.includes("postal_code"))?.long_name;
 
             setBuyer({
                 Buyer_Info_Street_Number: streetNumber || "",
@@ -237,365 +231,353 @@ const Extension = ({context, runServerless, sendAlert}) => {
     //   const { response } = await runServerless({ name: "myFunc", parameters: { text: text } });
     //   sendAlert({ message: response });
     // };
-    const budgetInfo = (
-        <>
-            <Heading>
-                <Icon name="contact" /> Buyer Information
-            </Heading>
+    const budgetInfo = (<>
+        <Heading>
+            <Icon name="contact"/> Buyer Information
+        </Heading>
 
-            <Accordion title={hasBuyer2 ? "Buyer 1 Details" : "Buyer Details"} size="sm" defaultOpen={true}>
+        <Accordion title={hasBuyer2 ? "Buyer 1 Details" : "Buyer Details"} size="sm" defaultOpen={true}>
+            <Input
+                value={buyer.Buyer_1_Given_Name}
+                name="Buyer_1_Given_Name"
+                label="Given Name"
+                required={true}
+                onChange={(val) => handleBuyerChange("Buyer_1_Given_Name", val)}
+            />
+            <Input
+                value={buyer.Buyer_1_Surname}
+                name="Buyer_1_Surname"
+                label="Surname"
+                required={true}
+                onChange={(val) => handleBuyerChange("Buyer_1_Surname", val)}
+            />
+            <Checkbox
+                checked={buyer.Buyer_1_Email_Not_Provided}
+                name="Buyer_1_Email_Not_Provided"
+                onChange={(val) => handleBuyerChange("Buyer_1_Email_Not_Provided", val)}
+            >
+                Email Not Provided
+            </Checkbox>
+            {!buyer.Buyer_1_Email_Not_Provided && (<Input
+                name="Buyer_1_Email"
+                description="Receipts for online payments will be sent to this address."
+                label="Email"
+                required={true}
+                value={buyer.Buyer_1_Email}
+                onChange={(val) => handleBuyerChange("Buyer_1_Email", val)}
+            />)}
+            <Input
+                name="Buyer_1_Mobile"
+                label="Mobile"
+                required={true}
+                value={buyer.Buyer_1_Mobile}
+                onChange={(val) => handleBuyerChange("Buyer_1_Mobile", val)}
+            />
+            <Input
+                name="Buyer_1_Business_Number"
+                label="Business Number"
+                value={buyer.Buyer_1_Business_Number}
+                onChange={(val) => handleBuyerChange("Buyer_1_Business_Number", val)}
+            />
+            <Input
+                name="Buyer_1_After_Hours"
+                label="After Hour Number"
+                value={buyer.Buyer_1_After_Hours}
+                onChange={(val) => handleBuyerChange("Buyer_1_After_Hours", val)}
+            />
+            <Checkbox
+                name="Buyer_Add_Second_Buyer"
+                checked={hasBuyer2}
+                onChange={() => setHasBuyer2(!hasBuyer2)}
+            >
+                Add Second Buyer Details
+            </Checkbox>
+        </Accordion>
+
+        {hasBuyer2 && (<>
+            <Divider/>
+            <Accordion title="Buyer 2 Details" size="sm" defaultOpen={true}>
                 <Input
-                    value={buyer.Buyer_1_Given_Name}
-                    name="Buyer_1_Given_Name"
+                    value={buyer.Buyer_2_Given_Name}
+                    name="Buyer_2_Given_Name"
                     label="Given Name"
                     required={true}
-                    onChange={(val) => handleBuyerChange("Buyer_1_Given_Name", val)}
+                    onChange={(val) => handleBuyerChange("Buyer_2_Given_Name", val)}
                 />
                 <Input
-                    value={buyer.Buyer_1_Surname}
-                    name="Buyer_1_Surname"
+                    value={buyer.Buyer_2_Surname}
+                    name="Buyer_2_Surname"
                     label="Surname"
                     required={true}
-                    onChange={(val) => handleBuyerChange("Buyer_1_Surname", val)}
+                    onChange={(val) => handleBuyerChange("Buyer_2_Surname", val)}
                 />
                 <Checkbox
-                    checked={buyer.Buyer_1_Email_Not_Provided}
-                    name="Buyer_1_Email_Not_Provided"
-                    onChange={(val) => handleBuyerChange("Buyer_1_Email_Not_Provided", val)}
+                    checked={buyer.Buyer_2_Email_Not_Provided}
+                    name="Buyer_2_Email_Not_Provided"
+                    onChange={(val) => handleBuyerChange("Buyer_2_Email_Not_Provided", val)}
                 >
                     Email Not Provided
                 </Checkbox>
-                {!buyer.Buyer_1_Email_Not_Provided && (
-                    <Input
-                        name="Buyer_1_Email"
-                        description="Receipts for online payments will be sent to this address."
-                        label="Email"
-                        required={true}
-                        value={buyer.Buyer_1_Email}
-                        onChange={(val) => handleBuyerChange("Buyer_1_Email", val)}
-                    />
-                )}
+                {!buyer.Buyer_2_Email_Not_Provided && (<Input
+                    value={buyer.Buyer_2_Email}
+                    name="Buyer_2_Email"
+                    label="Email"
+                    required={true}
+                    onChange={(val) => handleBuyerChange("Buyer_2_Email", val)}
+                />)}
                 <Input
-                    name="Buyer_1_Mobile"
+                    value={buyer.Buyer_2_Mobile}
+                    name="Buyer_2_Mobile"
                     label="Mobile"
                     required={true}
-                    value={buyer.Buyer_1_Mobile}
-                    onChange={(val) => handleBuyerChange("Buyer_1_Mobile", val)}
+                    onChange={(val) => handleBuyerChange("Buyer_2_Mobile", val)}
                 />
                 <Input
-                    name="Buyer_1_Business_Number"
+                    value={buyer.Buyer_2_Business_Number}
+                    name="Buyer_2_Business_Number"
                     label="Business Number"
-                    value={buyer.Buyer_1_Business_Number}
-                    onChange={(val) => handleBuyerChange("Buyer_1_Business_Number", val)}
+                    onChange={(val) => handleBuyerChange("Buyer_2_Business_Number", val)}
                 />
                 <Input
-                    name="Buyer_1_After_Hours"
+                    value={buyer.Buyer_2_After_Hours}
+                    name="Buyer_2_After_Hours"
                     label="After Hour Number"
-                    value={buyer.Buyer_1_After_Hours}
-                    onChange={(val) => handleBuyerChange("Buyer_1_After_Hours", val)}
+                    onChange={(val) => handleBuyerChange("Buyer_2_After_Hours", val)}
                 />
-                <Checkbox
-                    name="Buyer_Add_Second_Buyer"
-                    checked={hasBuyer2}
-                    onChange={() => setHasBuyer2(!hasBuyer2)}
+            </Accordion>
+        </>)}
+
+        <Divider/>
+
+        <Accordion title="Buyer Current Address" size="sm" defaultOpen={true}>
+            <Input
+                name="buyerAddressSearch"
+                label="Search Address"
+                value={buyerAddressSearch}
+                onInput={(val) => handleAddressSearch(val)}
+            />
+            {isAddressSearchLoading && (<LoadingSpinner label="Getting address suggestions..."/>)}
+            <Checkbox onChange={enterAddressManually}>Enter Address Manually</Checkbox>
+
+            {isAddressSelectedLoading && <LoadingSpinner label="Fetching address..."/>}
+
+            {buyerAddressSuggestions.length > 0 && (<List>
+                {buyerAddressSuggestions.map((suggestion) => (<Link
+                    key={suggestion.place_id}
+                    onClick={() => handleAddressSelect(suggestion.place_id)}
                 >
-                    Add Second Buyer Details
-                </Checkbox>
-            </Accordion>
+                    {suggestion.description}
+                </Link>))}
+            </List>)}
 
-            {hasBuyer2 && (
-                <>
-                    <Divider />
-                    <Accordion title="Buyer 2 Details" size="sm" defaultOpen={true}>
-                        <Input
-                            value={buyer.Buyer_2_Given_Name}
-                            name="Buyer_2_Given_Name"
-                            label="Given Name"
-                            required={true}
-                            onChange={(val) => handleBuyerChange("Buyer_2_Given_Name", val)}
-                        />
-                        <Input
-                            value={buyer.Buyer_2_Surname}
-                            name="Buyer_2_Surname"
-                            label="Surname"
-                            required={true}
-                            onChange={(val) => handleBuyerChange("Buyer_2_Surname", val)}
-                        />
-                        <Checkbox
-                            checked={buyer.Buyer_2_Email_Not_Provided}
-                            name="Buyer_2_Email_Not_Provided"
-                            onChange={(val) => handleBuyerChange("Buyer_2_Email_Not_Provided", val)}
-                        >
-                            Email Not Provided
-                        </Checkbox>
-                        {!buyer.Buyer_2_Email_Not_Provided && (
-                            <Input
-                                value={buyer.Buyer_2_Email}
-                                name="Buyer_2_Email"
-                                label="Email"
-                                required={true}
-                                onChange={(val) => handleBuyerChange("Buyer_2_Email", val)}
-                            />
-                        )}
-                        <Input
-                            value={buyer.Buyer_2_Mobile}
-                            name="Buyer_2_Mobile"
-                            label="Mobile"
-                            required={true}
-                            onChange={(val) => handleBuyerChange("Buyer_2_Mobile", val)}
-                        />
-                        <Input
-                            value={buyer.Buyer_2_Business_Number}
-                            name="Buyer_2_Business_Number"
-                            label="Business Number"
-                            onChange={(val) => handleBuyerChange("Buyer_2_Business_Number", val)}
-                        />
-                        <Input
-                            value={buyer.Buyer_2_After_Hours}
-                            name="Buyer_2_After_Hours"
-                            label="After Hour Number"
-                            onChange={(val) => handleBuyerChange("Buyer_2_After_Hours", val)}
-                        />
-                    </Accordion>
-                </>
-            )}
-
-            <Divider />
-
-            <Accordion title="Buyer Current Address" size="sm" defaultOpen={true}>
+            {showBuyerAddressFields && (<>
                 <Input
-                    name="buyerAddressSearch"
-                    label="Search Address"
-                    value={buyerAddressSearch}
-                    onInput={(val) => handleAddressSearch(val)}
-                />
-                {isAddressSearchLoading && (
-                    <LoadingSpinner label="Getting address suggestions..." />
-                )}
-                <Checkbox onChange={enterAddressManually}>Enter Address Manually</Checkbox>
-
-                {isAddressSelectedLoading && <LoadingSpinner label="Fetching address..." />}
-
-                {buyerAddressSuggestions.length > 0 && (
-                    <List>
-                        {buyerAddressSuggestions.map((suggestion) => (
-                            <Link
-                                key={suggestion.place_id}
-                                onClick={() => handleAddressSelect(suggestion.place_id)}
-                            >
-                                {suggestion.description}
-                            </Link>
-                        ))}
-                    </List>
-                )}
-
-                {showBuyerAddressFields && (
-                    <>
-                        <Input
-                            name="Buyer_Info_Street_Number"
-                            label="Street Number"
-                            value={buyer.Buyer_Info_Street_Number}
-                            readOnly
-                        />
-                        <Input
-                            name="Buyer_Info_Street_Name"
-                            label="Street Name"
-                            value={buyer.Buyer_Info_Street_Name}
-                            readOnly
-                        />
-                        <Input
-                            name="Buyer_Info_Suburb"
-                            label="Suburb"
-                            value={buyer.Buyer_Info_Suburb}
-                            readOnly
-                        />
-                        <Input
-                            name="Buyer_Info_State"
-                            label="State"
-                            value={buyer.Buyer_Info_State}
-                            readOnly
-                        />
-                        <Input
-                            name="Postcode"
-                            label="Postcode"
-                            value={buyer.Postcode}
-                            readOnly
-                        />
-                    </>
-                )}
-            </Accordion>
-        </>
-    );
-
-
-    const developmentDetails = (
-        <>
-            <Heading>
-                <Icon name="home" /> Development Details
-            </Heading>
-
-            <Accordion title="Development Details" size="sm" defaultOpen={false}>
-                <Input
-                    name="Development_Developer"
-                    label="Developer"
-                    value={development.Development_Developer}
-                    onChange={(val) => handleDevelopmentChange("Development_Developer", val)}
+                    name="Buyer_Info_Street_Number"
+                    label="Street Number"
+                    value={buyer.Buyer_Info_Street_Number}
+                    readOnly
                 />
                 <Input
-                    name="Development_Developer_Desc"
-                    label="Developer Description"
-                    value={development.Development_Developer_Desc}
-                    onChange={(val) => handleDevelopmentChange("Development_Developer_Desc", val)}
+                    name="Buyer_Info_Street_Name"
+                    label="Street Name"
+                    value={buyer.Buyer_Info_Street_Name}
+                    readOnly
                 />
                 <Input
-                    name="Development_Estate"
-                    label="Estate"
-                    value={development.Development_Estate}
-                    onChange={(val) => handleDevelopmentChange("Development_Estate", val)}
+                    name="Buyer_Info_Suburb"
+                    label="Suburb"
+                    value={buyer.Buyer_Info_Suburb}
+                    readOnly
                 />
                 <Input
-                    name="Development_Estate_Desc"
-                    label="Estate Description"
-                    value={development.Development_Estate_Desc}
-                    onChange={(val) => handleDevelopmentChange("Development_Estate_Desc", val)}
+                    name="Buyer_Info_State"
+                    label="State"
+                    value={buyer.Buyer_Info_State}
+                    readOnly
                 />
                 <Input
-                    name="Development_Display_Centre"
-                    label="Display Centre"
-                    value={development.Development_Display_Centre}
-                    onChange={(val) => handleDevelopmentChange("Development_Display_Centre", val)}
+                    name="Postcode"
+                    label="Postcode"
+                    value={buyer.Postcode}
+                    readOnly
                 />
-                <Input
-                    name="Development_House_Type"
-                    label="House Type"
-                    value={development.Development_House_Type}
-                    onChange={(val) => handleDevelopmentChange("Development_House_Type", val)}
-                />
-                <Input
-                    name="Development_House_Type_Desc"
-                    label="House Type Description"
-                    value={development.Development_House_Type_Desc}
-                    onChange={(val) => handleDevelopmentChange("Development_House_Type_Desc", val)}
-                />
-                <Input
-                    name="Development_Size"
-                    label="Size"
-                    value={development.Development_Size}
-                    onChange={(val) => handleDevelopmentChange("Development_Size", val)}
-                />
-                <Input
-                    name="Development_Facade"
-                    label="Facade"
-                    value={development.Development_Facade}
-                    onChange={(val) => handleDevelopmentChange("Development_Facade", val)}
-                />
-                <Input
-                    name="Development_Region"
-                    label="Region"
-                    value={development.Development_Region}
-                    onChange={(val) => handleDevelopmentChange("Development_Region", val)}
-                />
-            </Accordion>
-            <Divider/>
-            <Accordion title="Development Address" size="sm" defaultOpen={false}>
-                <Select
-                    label="Is the Land Titled?"
-                    name="Development_Address_Is_Land_Titled"
-                    placeholder="--None--"
-                    required={true}
-                    error={!isValid.Development_Address_Is_Land_Titled}
-                    validationMessage={validationMessage.Development_Address_Is_Land_Titled}
-                    onChange={(value) => {
-                        setDevelopment({
-                            ...development,
-                            Development_Address_Is_Land_Titled: value,
-                        });
-                        if (!value) {
-                            setValidationMessage((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_Land_Titled: 'This is required',
-                            }));
-                            setIsValid((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_Land_Titled: false,
-                            }));
-                        } else {
-                            setValidationMessage((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_Land_Titled: '',
-                            }));
-                            setIsValid((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_Land_Titled: true,
-                            }));
-                        }
-                    }}
-                    options={yesNoOptions}
-                />
-
-                <Select
-                    label="Is this a KDRB or Vacant Lot?"
-                    name="Development_Address_Is_KDRB_OR_Vacant"
-                    placeholder="--None--"
-                    required={true}
-                    error={!isValid.Development_Address_Is_KDRB_OR_Vacant}
-                    validationMessage={validationMessage.Development_Address_Is_KDRB_OR_Vacant}
-                    onChange={(value) => {
-                        setDevelopment({
-                            ...development,
-                            Development_Address_Is_KDRB_OR_Vacant: value,
-                        });
-                        if (!value) {
-                            setValidationMessage((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_KDRB_OR_Vacant: 'This is required',
-                            }));
-                            setIsValid((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_KDRB_OR_Vacant: false,
-                            }));
-                        } else {
-                            setValidationMessage((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_KDRB_OR_Vacant: '',
-                            }));
-                            setIsValid((prevState) => ({
-                                ...prevState,
-                                Development_Address_Is_KDRB_OR_Vacant: true,
-                            }));
-                        }
-                    }}
-                    options={KDRBOptions}
-                />
+            </>)}
+        </Accordion>
+    </>);
 
 
-                {development.Development_Address_Is_Land_Titled == "Yes" && (
-                    <Input
-                        name="Development_Address_Street_Number"
-                        label="Street Number"
-                        value={development.Development_Address_Street_Number}
-                        required
-                        onChange={(val) => handleDevelopmentChange("Development_Address_Street_Number", val)}
-                    />
-                )}
-                {development.Development_Address_Is_Land_Titled == "No" && (
-                    <Input
-                        name="Development_Address_Expected_Titles"
-                        label="Expected Titles"
-                        value={development.Development_Address_Expected_Titles}
-                        required
-                        onChange={(val) => handleDevelopmentChange("Development_Address_Expected_Titles", val)}
-                    />
-                )}
-                {development.Development_Address_Is_KDRB_OR_Vacant === "Vacant Lot" && (
-                    <Input
-                        name="Development_Address_Lot_No"
-                        label="Lot Number"
-                        value={development.Development_Address_Lot_No}
-                        required
-                        onChange={(val) => handleDevelopmentChange("Development_Address_Lot_No", val)}
-                    />
-                )}
+    const developmentDetails = (<>
+        <Heading>
+            <Icon name="home"/> Development Details
+        </Heading>
+
+        <Accordion title="Development Details" size="sm" defaultOpen={false}>
+            <Select
+                label="Developer"
+                name="Development_Developer"
+                options={[{label: '--UNKNOWN--', value: 'unknown'}, ...developers.map(item => ({
+                    label: item.name, value: item.hs_object_id
+                }))]}
+                onChange={(value) => setDevelopment({...development, Development_Developer: value})}
+            />
+
+            {development.Development_Developer === 'unknown' && (<Input
+                name="Development_Developer_Desc"
+                label="Developer Description"
+                value={development.Development_Developer_Desc}
+                onChange={(value) => handleDevelopmentChange("Development_Developer_Desc", value)}
+            />)}
+
+            <Select
+                label="Estate"
+                name="Development_Estate"
+                options={[{label: '--UNKNOWN--', value: 'unknown'}, ...estates.map(item => ({
+                    label: item.name, value: item.hs_object_id
+                }))]}
+                onChange={(value) => setDevelopment({...development, Development_Estate: value})}
+            />
+            {development.Development_Estate === 'unknown' && (<Input
+                name="Development_Estate_Desc"
+                label="Estate Description"
+                value={development.Development_Estate_Desc}
+                onChange={(value) => handleDevelopmentChange("Development_Estate_Desc", value)}
+            />)}
+
+            <Select
+                label="Display Centre"
+                name="Development_Display_Centre"
+                options={[{label: '--UNKNOWN--', value: 'unknown'}, ...displayCentre.map(item => ({
+                    label: item.name, value: item.hs_object_id
+                }))]}
+                onChange={(value) => setDevelopment({...development, Development_Display_Centre: value})}
+            />
+            {development.Development_Display_Centre === 'unknown' && (<Input
+                name="Development_Display_Centre_Desc"
+                label="Display Centre Description"
+                value={development.Development_Display_Centre_Desc}
+                onChange={(value) => handleDevelopmentChange("Development_Display_Centre_Desc", value)}
+            />)}
+
+            <Select
+                label="House Type"
+                name="Development_House_Type"
+                options={[{label: '--UNKNOWN--', value: 'unknown'}, ...houseTypes.map(item => ({
+                    label: item.name, value: item.hs_object_id
+                }))]}
+                onChange={(value) => setDevelopment({...development, Development_House_Type: value})}
+            />
+            {development.Development_House_Type === 'unknown' && (<Input
+                name="Development_House_Type_Desc"
+                label="House Type Description"
+                value={development.Development_House_Type_Desc}
+                onChange={(value) => handleDevelopmentChange("Development_House_Type_Desc", value)}
+            />)}
+
+            <Input
+                name="Development_Size"
+                label="Size"
+                value={development.Development_Size}
+                onChange={(value) => handleDevelopmentChange("Development_Size", value)}
+            />
+            <Select
+                label="Facade"
+                name="Development_Facade"
+                options={facades.map(item => ({
+                    label: item.name, value: item.hs_object_id
+                }))}
+                onChange={(value) => setDevelopment({...development, Development_Facade: value})}
+            />
+            <Select
+                label="Region"
+                name="Development_Region"
+                options={regionOptions}
+                onChange={(value) => setDevelopment({...development, Development_Region: value})}
+            />
+        </Accordion>
+        <Divider/>
+        <Accordion title="Development Address" size="sm" defaultOpen={false}>
+            <Select
+                label="Is the Land Titled?"
+                name="Development_Address_Is_Land_Titled"
+                placeholder="--None--"
+                required={true}
+                error={!isValid.Development_Address_Is_Land_Titled}
+                validationMessage={validationMessage.Development_Address_Is_Land_Titled}
+                onChange={(value) => {
+                    setDevelopment({
+                        ...development, Development_Address_Is_Land_Titled: value,
+                    });
+                    if (!value) {
+                        setValidationMessage((prevState) => ({
+                            ...prevState, Development_Address_Is_Land_Titled: 'This is required',
+                        }));
+                        setIsValid((prevState) => ({
+                            ...prevState, Development_Address_Is_Land_Titled: false,
+                        }));
+                    } else {
+                        setValidationMessage((prevState) => ({
+                            ...prevState, Development_Address_Is_Land_Titled: '',
+                        }));
+                        setIsValid((prevState) => ({
+                            ...prevState, Development_Address_Is_Land_Titled: true,
+                        }));
+                    }
+                }}
+                options={yesNoOptions}
+            />
+
+            <Select
+                label="Is this a KDRB or Vacant Lot?"
+                name="Development_Address_Is_KDRB_OR_Vacant"
+                placeholder="--None--"
+                required={true}
+                error={!isValid.Development_Address_Is_KDRB_OR_Vacant}
+                validationMessage={validationMessage.Development_Address_Is_KDRB_OR_Vacant}
+                onChange={(value) => {
+                    setDevelopment({
+                        ...development, Development_Address_Is_KDRB_OR_Vacant: value,
+                    });
+                    if (!value) {
+                        setValidationMessage((prevState) => ({
+                            ...prevState, Development_Address_Is_KDRB_OR_Vacant: 'This is required',
+                        }));
+                        setIsValid((prevState) => ({
+                            ...prevState, Development_Address_Is_KDRB_OR_Vacant: false,
+                        }));
+                    } else {
+                        setValidationMessage((prevState) => ({
+                            ...prevState, Development_Address_Is_KDRB_OR_Vacant: '',
+                        }));
+                        setIsValid((prevState) => ({
+                            ...prevState, Development_Address_Is_KDRB_OR_Vacant: true,
+                        }));
+                    }
+                }}
+                options={KDRBOptions}
+            />
+
+
+            {development.Development_Address_Is_Land_Titled == "Yes" && (<Input
+                name="Development_Address_Street_Number"
+                label="Street Number"
+                value={development.Development_Address_Street_Number}
+                required
+                onChange={(val) => handleDevelopmentChange("Development_Address_Street_Number", val)}
+            />)}
+            {development.Development_Address_Is_Land_Titled == "No" && (<Input
+                name="Development_Address_Expected_Titles"
+                label="Expected Titles"
+                value={development.Development_Address_Expected_Titles}
+                required
+                onChange={(val) => handleDevelopmentChange("Development_Address_Expected_Titles", val)}
+            />)}
+            {development.Development_Address_Is_KDRB_OR_Vacant === "Vacant Lot" && (<Input
+                name="Development_Address_Lot_No"
+                label="Lot Number"
+                value={development.Development_Address_Lot_No}
+                required
+                onChange={(val) => handleDevelopmentChange("Development_Address_Lot_No", val)}
+            />)}
 
             {/*    <Input*/}
             {/*        name="Development_Address_Street_Name"*/}
@@ -633,18 +615,15 @@ const Extension = ({context, runServerless, sendAlert}) => {
             {/*        value={development.Development_Address_Site_Land_Settlement}*/}
             {/*        onChange={(val) => handleDevelopmentChange("Development_Address_Site_Land_Settlement", val)}*/}
             {/*    />*/}
-            </Accordion>
-        </>
-    );
+        </Accordion>
+    </>);
 
 
-    return (
-        <>
-            <Form>
-                {budgetInfo}
-                {developmentDetails}
-            </Form>
-        </>
-    );
+    return (<>
+        <Form>
+            {budgetInfo}
+            {developmentDetails}
+        </Form>
+    </>);
 
 };

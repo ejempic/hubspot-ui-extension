@@ -2,7 +2,18 @@
   "name": "Simonds Deposit App",
   "description": "This app controls the deposit functions.",
   "uid": "simonds_deposit_app",
-  "scopes": ["crm.objects.contacts.read", "crm.objects.contacts.write","crm.objects.deals.read","crm.objects.deals.write"],
+  "scopes": [
+    "crm.objects.contacts.read",
+    "crm.objects.contacts.write",
+    "crm.objects.deals.read",
+    "crm.objects.deals.write",
+    "collector.graphql_schema.read",
+    "collector.graphql_query.execute",
+    "crm.objects.custom.write",
+    "crm.objects.custom.read",
+    "crm.schemas.custom.read",
+    "crm.schemas.custom.write"
+  ],
   "public": false,
   "allowedUrls":[
     "https://maps.googleapis.com"

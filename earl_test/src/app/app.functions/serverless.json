@@ -7,6 +7,10 @@
     "frameworkApiUATAuthenticate": {
       "file": "framework-uat-api.js",
       "secrets": []
-    }  
+    },
+    "fetchDropdownOptions": {
+      "file": "fetchDropdownOptions.js",
+      "secrets": []
+    }
   }
 }
