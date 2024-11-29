@@ -1,0 +1,12 @@
+{
+  "type": "crm-card",
+  "data": {
+    "title": "Deposit Slip Copy",
+    "uid": "simonds_deposit_card_copy",
+    "location": "crm.record.tab",
+    "module": {
+      "file": "DepositSlip.jsx"
+    },
+    "objectTypes": [{ "name": "deals" }]
+  }
+}

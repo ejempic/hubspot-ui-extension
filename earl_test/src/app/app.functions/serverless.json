@@ -1,0 +1,12 @@
+{
+  "appFunctions": {
+    "gmapsSearchAddress": {
+      "file": "gmaps-search-address-function.js",
+      "secrets": []
+    },
+    "frameworkApiUATAuthenticate": {
+      "file": "framework-uat-api.js",
+      "secrets": []
+    }  
+  }
+}

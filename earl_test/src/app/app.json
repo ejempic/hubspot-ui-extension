@@ -1,0 +1,22 @@
+{
+  "name": "Simonds Deposit App",
+  "description": "This app controls the deposit functions.",
+  "uid": "simonds_deposit_app",
+  "scopes": ["crm.objects.contacts.read", "crm.objects.contacts.write","crm.objects.deals.read","crm.objects.deals.write"],
+  "public": false,
+  "allowedUrls":[
+    "https://maps.googleapis.com"
+  ],
+  "extensions": {
+    "crm": {
+      "cards": [
+        {
+          "file": "extensions/deposit-slip.json"
+        }
+      ]
+    }
+  },
+  "webhooks": {
+    "file": "./webhooks/webhooks.json"
+  }
+}
