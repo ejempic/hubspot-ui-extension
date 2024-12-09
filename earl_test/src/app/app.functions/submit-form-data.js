@@ -1,14 +1,12 @@
-// for HubSpot API calls
 const hubspot = require('@hubspot/api-client');
 
 // Initialize HubSpot API client
-const hubspotClient = new hubspot.Client({
-    accessToken: process.env['PRIVATE_APP_ACCESS_TOKEN'],
-});
-
+// const hubspotClient = new hubspot.Client({
+//     accessToken: process.env['PRIVATE_APP_ACCESS_TOKEN'],
+// });
 
 exports.main = async (context = {}) => {
-    const PRIVATE_APP_TOKEN = process.env.PRIVATE_APP_ACCESS_TOKEN;
+    // const PRIVATE_APP_TOKEN = process.env.PRIVATE_APP_ACCESS_TOKEN;
     const {
         buyer,
         development,

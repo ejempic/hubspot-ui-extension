@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import {
     Divider,
@@ -105,6 +105,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 setPromotionTypes(resp.response.data.CRM?.p_promotion_types_collection?.items || []);
                 setTeams(resp.response.data.CRM?.p_teams_collection?.items || []);
             }
+            setDeposit({...deposit, Deposit_Who_Paying_Deposit: 'Buyer 1'})
         });
     }, []);
     useEffect(() => {
@@ -267,6 +268,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             console.error("Error fetching place details", error);
         }
     };
+
+    const handleChangePaymentMethod = (value)=>{
+        setDeposit({...deposit, Deposit_Payment_Method: value})
+        if((deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card')){
+            setDeposit({...deposit, Deposit_Payment_Terminal_Number: 'Bpoint'})
+        }
+    }
 
     // Call serverless function to execute with parameters.
     // The `myFunc` function name is configured inside `serverless.json`
@@ -648,12 +656,12 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             onChange={(val) => handleDevelopmentChange("Development_Address_Street_Number", val)}
                         />)}
                         {development.Development_Address_Is_Land_Titled === "No" && (
-
                             <DateInput
                                 label="Expected Titles"
                                 name="Development_Address_Expected_Titles"
                                 onChange={(val) => handleDevelopmentChange("Development_Address_Expected_Titles", val)}
                                 value={development.Development_Address_Expected_Titles}
+                                required
                                 format="L"
                             />
                         )}
@@ -673,7 +681,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         />
 
                         {isDevAddressSearchLoading && (<LoadingSpinner label="Getting address suggestions..."/>)}
-                        <Checkbox onChange={enterDevAddressManually}>Enter Address Manually</Checkbox>
+                        <Checkbox onChange={enterDevAddressManually}>Enter Suburb Manually</Checkbox>
 
                         {isDevAddressSelectedLoading && <LoadingSpinner label="Fetching address..."/>}
 
@@ -686,27 +694,29 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             </Link>))}
                         </List>)}
 
-                        <Input
-                            name="Development_Address_Suburb"
-                            label="Suburb"
-                            required={true}
-                            value={development.Development_Address_Suburb}
-                            onChange={(val) => handleDevelopmentChange("Development_Address_Suburb", val)}
-                        />
-                        <Input
-                            name="Development_Address_State"
-                            label="State"
-                            required={true}
-                            value={development.Development_Address_State}
-                            onChange={(val) => handleDevelopmentChange("Development_Address_State", val)}
-                        />
-                        <Input
-                            name="Development_Address_Postcode"
-                            label="Postcode"
-                            required={true}
-                            value={development.Development_Address_Postcode}
-                            onChange={(val) => handleDevelopmentChange("Development_Address_Postcode", val)}
-                        />
+                        {showDevAddressFields && (<>
+                            <Input
+                                name="Development_Address_Suburb"
+                                label="Suburb"
+                                required={true}
+                                value={development.Development_Address_Suburb}
+                                onChange={(val) => handleDevelopmentChange("Development_Address_Suburb", val)}
+                            />
+                            <Input
+                                name="Development_Address_State"
+                                label="State"
+                                required={true}
+                                value={development.Development_Address_State}
+                                onChange={(val) => handleDevelopmentChange("Development_Address_State", val)}
+                            />
+                            <Input
+                                name="Development_Address_Postcode"
+                                label="Postcode"
+                                required={true}
+                                value={development.Development_Address_Postcode}
+                                onChange={(val) => handleDevelopmentChange("Development_Address_Postcode", val)}
+                            />
+                        </>)}
                         <DateInput
                             label="Site Start"
                             name="Development_Address_Site_Start"
@@ -739,6 +749,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         name="Deposit_Who_Paying_Deposit"
                         required={true}
                         options={whoisPayingOptionsFinal}
+                        value={deposit.Deposit_Who_Paying_Deposit}
                         onChange={(value) => setDeposit({...deposit, Deposit_Who_Paying_Deposit: value})}
                     />
                     <Select
@@ -803,7 +814,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         placeholder=""
                         required={true}
                         options={paymentMethodOptions}
-                        onChange={(value) => setDeposit({...deposit, Deposit_Payment_Method: value})}
+                        onChange={(value) => handleChangePaymentMethod(value)}
                     />
                     {(deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card') && (
                         <Input
@@ -811,7 +822,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Deposit_Payment_Terminal_Number"
                             placeholder="Bpoint"
                             required={true}
-                            value={deposit.Deposit_Payment_Terminal_Number || "Bpoint"}
+                            value={deposit.Deposit_Payment_Terminal_Number}
                             onChange={(value) => setDeposit({...deposit, Deposit_Payment_Terminal_Number: value})}
                         />)}
                     <Select
@@ -1034,8 +1045,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     ];
 
     const [validationError, setValidationError] = useState([]);
+    const [validating, setValidating] = useState(false);
 
     const validateForm = () => {
+        setValidated(false);
         let isValid = true;
         let errors = [];
 
@@ -1064,28 +1077,70 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             // console.log("++++++++++++")
         });
 
-        console.log(isValid)
-        console.log(errors.length > 0)
+        setValidationError([]);
         if (!isValid && errors.length > 0) {
             setValidationError(errors);
-        } else {
-            setValidationError([]);
         }
 
-
+        console.log('after validation')
         return !isValid;
     };
 
     const [submittedData, setSubmittedData] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(null);
+    const [validated, setValidated] = useState(false);
 
 
-    const handleSubmit = async () => {
+
+    const handleSubmitForm = async () => {
 
         console.log(validationError)
         if (validateForm()) {
-            return true;
+            // return true;
         }
+        setValidated(true);
+
+        try {
+            setSubmitLoading(true);
+            await runServerless({
+                name: "submitFormData",
+                parameters: submissionData,
+            }).then((response) => {
+                // setSubmittedData(response)
+                if (response.status === "SUCCESS") {
+                    console.log(response.response)
+                    sendAlert({message: "Form submitted successfully!"});
+                } else {
+                //     sendAlert({message: "Failed to submit the form. Please try again."});
+                }
+                setSubmitLoading(false);
+                // return true;
+            });
+
+        } catch (error) {
+            console.log("error")
+            console.log(error)
+            // console.error("Error submitting form:", error);
+            sendAlert({message: "An error occurred while submitting the form."});
+        }
+    };
+
+    // useEffect(() => {
+    //     fetchCrmObjectProperties(['dealname', 'dealstage', 'hs_object_id']).then(
+    //         (properties: { [propertyName: string]: any }) => {
+    //             setStage(properties.dealstage);
+    //             setDealId(properties.hs_object_id);
+    //             setDealname(properties.dealname);
+    //         }
+    //     );
+    // }, [stage]);
+
+
+    // const handleSubmit = useCallback (() => {
+    //     handleSubmitForm
+    // }, []);
+
+    const generateDeal = () => {
 
         const submissionData = {
             buyer,
@@ -1094,29 +1149,102 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             system,
             user,
         };
-        console.log('clicked')
-        try {
-            setSubmitLoading(true);
-            await runServerless({
-                name: "submitFormData",
-                parameters: submissionData,
-            }).then((resp) => {
-                console.log(resp)
-                // setSubmittedData(resp)
-                // if (response.status === "SUCCESS") {
-                //     sendAlert({message: "Form submitted successfully!"});
-                // } else {
+        //
+        // await runServerless({
+        //     name: "submitFormData",
+        //     parameters: submissionData,
+        // }).then((response) => {
+        //     // setSubmittedData(response)
+        //     if (response.status === "SUCCESS") {
+        //         console.log(response.response)
+        //         sendAlert({message: "Form submitted successfully!"});
+        //     } else {
+        //         //     sendAlert({message: "Failed to submit the form. Please try again."});
+        //     }
+        //     setSubmitLoading(false);
+        //     // return true;
+        // });
+        runServerless({
+            name: "submitFormData",
+            parameters: submissionData,
+        }).then((response) => {
+            console.log("response")
+            console.log(response)
+            if (response.status === "SUCCESS") {
+                console.log(response.response)
+                sendAlert({message: "Form submitted successfully!"});
+            } else {
                 //     sendAlert({message: "Failed to submit the form. Please try again."});
-                // }
-                setSubmitLoading(false);
-                return true;
-            });
+            }setSubmittedData(submissionData)
+            setSubmitLoading(false);
 
-        } catch (error) {
-            console.error("Error submitting form:", error);
-            sendAlert({message: "An error occurred while submitting the form."});
-        }
+        });
     };
+    const [submitted, setSubmitted] = useState(false);
+
+    const handleSubmit = () => {
+
+        setSubmitted(true)
+        console.log("validationError")
+        console.log(validationError)
+        console.log("validated")
+        console.log(validated)
+        if(!validateForm()){
+            // return;
+        }
+        console.log("validationError 1")
+        setValidated(true);
+        setSubmitLoading(true);
+        generateDeal()
+        setSubmitted(false)
+    };
+
+    const initialDisplay =(
+        <>
+            <DescriptionList direction="row">
+                <DescriptionListItem label={'First Name'}>
+                    <Text>{buyer.Buyer_1_Given_Name}</Text>
+                </DescriptionListItem>
+                <DescriptionListItem label={'Last Name'}>
+                    <Text>{buyer.Buyer_1_Surname}</Text>
+                </DescriptionListItem>
+            </DescriptionList>
+            <DescriptionList direction="row">
+                <DescriptionListItem label={'Email'}>
+                    <Text>{buyer.Buyer_1_Email || '--'}</Text>
+                </DescriptionListItem>
+                <DescriptionListItem label={'Phone'}>
+                    <Text>{buyer.Buyer_1_Mobile || '--'}</Text>
+                </DescriptionListItem>
+            </DescriptionList>
+            <DescriptionList direction="row">
+                <DescriptionListItem label={'Initial Fee Deposit'}>
+                    <Text>--</Text>
+                    {
+                        showFirstButton && (
+                            <Button
+                                onClick={() => {
+                                    setShowForm(true)
+                                    setShowFirstButton(false)
+                                }}
+                                variant="primary"
+                                size="sm"
+                                type="button"
+                            >
+                                Create Initial Fee Deposit
+                            </Button>
+                        )
+                    }
+                </DescriptionListItem>
+                <DescriptionListItem label={'Preliminary Fee Deposit'}>
+                    <Text>--</Text>
+                </DescriptionListItem>
+                <DescriptionListItem label={'Total Paid Amount'}>
+                    <Text>--</Text>
+                </DescriptionListItem>
+            </DescriptionList>
+        </>
+    )
     return (
         <>
             {loading &&
@@ -1124,56 +1252,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 layout="centered"></LoadingSpinner>}
             {!loading &&
                 <>
-                    {
-                        !showForm && (
-                            <>
-                                <DescriptionList direction="row">
-                                    <DescriptionListItem label={'First Name'}>
-                                        <Text>{buyer.Buyer_1_Given_Name}</Text>
-                                    </DescriptionListItem>
-                                    <DescriptionListItem label={'Last Name'}>
-                                        <Text>{buyer.Buyer_1_Surname}</Text>
-                                    </DescriptionListItem>
-                                </DescriptionList>
-                                <DescriptionList direction="row">
-                                    <DescriptionListItem label={'Email'}>
-                                        <Text>{buyer.Buyer_1_Email || '--'}</Text>
-                                    </DescriptionListItem>
-                                    <DescriptionListItem label={'Phone'}>
-                                        <Text>{buyer.Buyer_1_Mobile || '--'}</Text>
-                                    </DescriptionListItem>
-                                </DescriptionList>
-                                <DescriptionList direction="row">
-                                    <DescriptionListItem label={'Initial Fee Deposit'}>
-                                        <Text>--</Text>
-                                        {
-                                            showFirstButton && (
-                                                <Button
-                                                    onClick={() => {
-                                                        setShowForm(true)
-                                                        setShowFirstButton(false)
-                                                    }}
-                                                    variant="primary"
-                                                    size="sm"
-                                                    type="button"
-                                                >
-                                                    Create Initial Fee Deposit
-                                                </Button>
-                                            )
-                                        }
-                                    </DescriptionListItem>
-                                    <DescriptionListItem label={'Preliminary Fee Deposit'}>
-                                        <Text>--</Text>
-                                    </DescriptionListItem>
-                                    <DescriptionListItem label={'Total Paid Amount'}>
-                                        <Text>--</Text>
-                                    </DescriptionListItem>
-                                </DescriptionList>
-                            </>
-                        )
-                    }
-
-
+                    {!showForm && initialDisplay}
                     {
                         showForm && (
 
@@ -1184,33 +1263,40 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                     {depositDetails}
                                     {systemDetails}
                                     <Flex direction={'row'} justify={'end'} wrap={'wrap'} gap={'small'}>
-                                        {submitLoading &&
-                                            <LoadingSpinner size='xs'></LoadingSpinner>}
-
+                                        {submitLoading && <LoadingSpinner size='xs'></LoadingSpinner>}
                                         <Button
                                             overlay={
-                                                (validationError.length > 0 &&
-                                                    <Modal id="validation-modal" title="Validation Error" width="md">
-                                                        <ModalBody>
-                                                            <>
-                                                                <Text> The following fields are required: </Text>
-                                                                <List variant="ordered-styled">
-                                                                    {validationError.map((validationErr) => (validationErr))}
-                                                                </List>
-                                                            </>
-                                                            {/*<Text>{JSON.stringify(validationError)}</Text>*/}
-                                                            {/*<Text>{JSON.stringify(buyer)}</Text>*/}
-                                                        </ModalBody>
-                                                        <ModalFooter>
-                                                            <Button
-                                                                onClick={() => actions.closeOverlay('validation-modal')}>Ok</Button>
-                                                        </ModalFooter>
-                                                    </Modal>)
+                                                ( !submitted? null  : validated ? null: <Modal id="validation-modal" title="Validation Error" width="md">
+                                                    <ModalBody>
+                                                        <>
+                                                            {validating &&
+                                                                <LoadingSpinner size='xs' label={"Validating.."}></LoadingSpinner>}
+
+
+                                                            {
+                                                                validationError.length>0 && <>
+                                                                    <Text> The following fields are required: </Text>
+                                                                    <List variant="ordered-styled">
+                                                                        {validationError.map((validationErr) => (validationErr))}
+                                                                    </List>
+                                                                </>
+                                                            }
+
+                                                        </>
+                                                        {/*<Text>{JSON.stringify(validationError)}</Text>*/}
+                                                        {/*<Text>{JSON.stringify(buyer)}</Text>*/}
+                                                    </ModalBody>
+                                                    <ModalFooter>
+                                                        <Button
+                                                            onClick={() => actions.closeOverlay('validation-modal')}>Ok</Button>
+                                                    </ModalFooter>
+                                                </Modal>)
                                             }
                                             onClick={handleSubmit} disabled={submitLoading} size="md" type="submit"
                                             variant="primary">Submit</Button>
                                     </Flex>
 
+                                    <Text>{validated}</Text>
                                     <Text>{JSON.stringify(submittedData)}</Text>
                                 </Flex>
                             </Form>
