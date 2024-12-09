@@ -2,9 +2,6 @@ const axios = require('axios');
 
 exports.main = async (context = {}) => {
     const PRIVATE_APP_TOKEN = process.env.PRIVATE_APP_ACCESS_TOKEN;
-    console.log("PRIVATE_APP_TOKEN")
-    console.log(PRIVATE_APP_TOKEN)
-
     try {
         const { data } = await fetchDevelopersAndEstates(PRIVATE_APP_TOKEN);
         return data;
@@ -14,55 +11,54 @@ exports.main = async (context = {}) => {
     }
 };
 
-// Function to fetch developers and estates using GraphQL
 const fetchDevelopersAndEstates = (token) => {
     // Define the GraphQL query
     const query = `
   query getFields {
   CRM {
-    p_developers_collection {
+    p_developers_collection(filter: {status__neq: "inactive"}) {
       items {
         name
         hs_object_id
         status
       }
     }
-    p_estates_collection {
+    p_estates_collection(filter: {status__neq: "inactive"}) {
       items {
         name
         hs_object_id
         status
       }
     }
-    p_display_centre_collection {
+    p_display_centre_collection(filter: {status__neq: "inactive"}) {
       items {
         name
         hs_object_id
         status
       }
     }
-    p_facades_collection {
+    p_facades_collection(filter: {status__neq: "inactive"}) {
       items {
         name
         hs_object_id
         status
       }
     }
-    p_house_types_collection {
+    p_house_types_collection(filter: {status__neq: "inactive"}) {
       items {
         hs_object_id
         name
         status
       }
     }
-    p_promotion_types_collection {
+    p_promotion_types_collection(filter: {status__neq: "inactive"}) {
       items {
         hs_object_id
         name
         status
       }
     }
-    p_teams_collection(filter: {}) {
+    p_teams_collection(filter: {status__neq: "inactive"}){
       items {
         hs_object_id
         name

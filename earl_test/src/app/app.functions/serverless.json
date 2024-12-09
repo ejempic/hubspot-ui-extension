@@ -9,7 +9,15 @@
       "secrets": []
     },
     "fetchDropdownOptions": {
-      "file": "fetchDropdownOptions.js",
+      "file": "fetch-dropdown-options.js",
+      "secrets": []
+    },
+    "fetchBuyerDetails": {
+      "file": "fetch-buyer-details.js",
+      "secrets": []
+    },
+    "submitFormData": {
+      "file": "submit-form-data.js",
       "secrets": []
     }
   }
