@@ -95,6 +95,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         contact_phone: "null"
     });
 
+    const [dealDeposits, setDealDeposits] = useState(null);
+
     useEffect(() => {
         runServerless({name: "fetchDropdownOptions"}).then((resp) => {
             if (resp.status === "SUCCESS") {
@@ -116,8 +118,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     }, [hasBuyer2]);
     useEffect(() => {
         fetchProperties(["hs_object_id"]).then((properties) => {
-            console.log("properties")
-            console.log(properties)
             setCurrentBuyerId(properties.hs_object_id);
         });
 
@@ -127,11 +127,17 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             // console.log(resp);
             if (resp.status === "SUCCESS") {
                 setCurrentBuyer(resp.response.data.CRM.deal);
+                setDealDeposits(resp.response.data.CRM.deal?.associations.p_deposit_collection__deal_to_deposit.items);
             }
             setLoading(false);
             setShowFirstButton(true)
         });
     }, [currentBuyerId]);
+    if(currentBuyer && dealDeposits){
+        console.log(currentBuyerId)
+        console.log(currentBuyer)
+        console.log(dealDeposits)
+    }
 
     useEffect(() => {
         handleBuyerChange('Buyer_1_Given_Name', currentBuyer.contact_first_name);
