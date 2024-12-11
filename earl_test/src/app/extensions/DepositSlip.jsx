@@ -61,6 +61,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [buyerAddressSearch, setBuyerAddressSearch] = useState("");
     const [buyerAddressSuggestions, setBuyerAddressSuggestions] = useState([]);
     const [showBuyerAddressFields, setShowBuyerAddressFields] = useState(false);
+    const [isAddressManually, setIsAddressManually] = useState(false);
     const [isAddressSearchLoading, setIsAddressSearchLoading] = useState(false);
     const [isAddressSelectedLoading, setIsAddressSelectedLoading] = useState(false);
 
@@ -115,6 +116,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     }, [hasBuyer2]);
     useEffect(() => {
         fetchProperties(["hs_object_id"]).then((properties) => {
+            console.log("properties")
+            console.log(properties)
             setCurrentBuyerId(properties.hs_object_id);
         });
 
@@ -160,6 +163,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         : [{label: 'Buyer 1', value: 'Buyer 1'}];
     const enterAddressManually = () => {
         setShowBuyerAddressFields(true);
+        setIsAddressManually(true);
     }
     const enterDevAddressManually = () => {
         setShowDevAddressFields(true);
@@ -305,23 +309,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         required={true}
                         onChange={(val) => handleBuyerChange("Buyer_1_Surname", val)}
                     />
-                    <Checkbox
-                        checked={buyer.Buyer_1_Email_Not_Provided}
-                        name="Buyer_1_Email_Not_Provided"
-                        onChange={(val) => handleBuyerChange("Buyer_1_Email_Not_Provided", val)}
-                    >
-                        Email Not Provided
-                    </Checkbox>
-                    {!buyer.Buyer_1_Email_Not_Provided && (
-                        <Input
-                            name="Buyer_1_Email"
-                            description="Receipts for online payments will be sent to this address."
-                            label="Email"
-                            required={true}
-                            value={buyer.Buyer_1_Email}
-                            onChange={(val) => handleBuyerChange("Buyer_1_Email", val)}
-                        />
-                    )}
+                    <Input
+                        name="Buyer_1_Email"
+                        description="Receipts for online payments will be sent to this address."
+                        label="Email"
+                        required={true}
+                        value={buyer.Buyer_1_Email}
+                        onChange={(val) => handleBuyerChange("Buyer_1_Email", val)}
+                    />
                     <Input
                         name="Buyer_1_Mobile"
                         label="Mobile"
@@ -442,31 +437,31 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 name="Buyer_Info_Street_Number"
                                 label="Street Number"
                                 value={buyer.Buyer_Info_Street_Number}
-                                readOnly
+                                readOnly={!isAddressManually}
                             />
                             <Input
                                 name="Buyer_Info_Street_Name"
                                 label="Street Name"
                                 value={buyer.Buyer_Info_Street_Name}
-                                readOnly
+                                readOnly={!isAddressManually}
                             />
                             <Input
                                 name="Buyer_Info_Suburb"
                                 label="Suburb"
                                 value={buyer.Buyer_Info_Suburb}
-                                readOnly
+                                readOnly={!isAddressManually}
                             />
                             <Input
                                 name="Buyer_Info_State"
                                 label="State"
                                 value={buyer.Buyer_Info_State}
-                                readOnly
+                                readOnly={!isAddressManually}
                             />
                             <Input
                                 name="Postcode"
                                 label="Postcode"
                                 value={buyer.Postcode}
-                                readOnly
+                                readOnly={!isAddressManually}
                             />
                         </>
                     )}
@@ -561,7 +556,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
                         <Input
                             name="Development_Size"
-                            label="Size"
+                            label="House Size"
                             value={development.Development_Size}
                             onChange={(value) => handleDevelopmentChange("Development_Size", value)}
                         />
@@ -569,6 +564,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             label="Facade"
                             name="Development_Facade"
                             placeholder=""
+                            required={true}
                             options={facades.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))}
@@ -665,13 +661,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 format="L"
                             />
                         )}
-                        {development.Development_Address_Is_KDRB_OR_Vacant === "Vacant Lot" && (<Input
+                        <Input
                             name="Development_Address_Lot_No"
                             label="Lot Number"
                             value={development.Development_Address_Lot_No}
                             required
                             onChange={(val) => handleDevelopmentChange("Development_Address_Lot_No", val)}
-                        />)}
+                        />
 
                         <Input
                             name="devAddressSearch"
@@ -908,7 +904,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Buyer_1_Email",
             label: "Email",
-            required: () => !buyer.Buyer_1_Email_Not_Provided,
+            required: true,
         },
         {
             name: "Buyer_1_Mobile",
@@ -1005,7 +1001,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Development_Address_Lot_No",
             label: "Lot Number",
-            required: () => development.Development_Address_Is_KDRB_OR_Vacant === "Vacant Lot",
+            required: () =>false,
         },
         {
             name: "Development_Address_Suburb",
@@ -1090,56 +1086,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [submitLoading, setSubmitLoading] = useState(null);
     const [validated, setValidated] = useState(false);
 
-
-
-    const handleSubmitForm = async () => {
-
-        console.log(validationError)
-        if (validateForm()) {
-            // return true;
-        }
-        setValidated(true);
-
-        try {
-            setSubmitLoading(true);
-            await runServerless({
-                name: "submitFormData",
-                parameters: submissionData,
-            }).then((response) => {
-                // setSubmittedData(response)
-                if (response.status === "SUCCESS") {
-                    console.log(response.response)
-                    sendAlert({message: "Form submitted successfully!"});
-                } else {
-                //     sendAlert({message: "Failed to submit the form. Please try again."});
-                }
-                setSubmitLoading(false);
-                // return true;
-            });
-
-        } catch (error) {
-            console.log("error")
-            console.log(error)
-            // console.error("Error submitting form:", error);
-            sendAlert({message: "An error occurred while submitting the form."});
-        }
-    };
-
-    // useEffect(() => {
-    //     fetchCrmObjectProperties(['dealname', 'dealstage', 'hs_object_id']).then(
-    //         (properties: { [propertyName: string]: any }) => {
-    //             setStage(properties.dealstage);
-    //             setDealId(properties.hs_object_id);
-    //             setDealname(properties.dealname);
-    //         }
-    //     );
-    // }, [stage]);
-
-
-    // const handleSubmit = useCallback (() => {
-    //     handleSubmitForm
-    // }, []);
-
     const generateDeal = () => {
 
         const submissionData = {
@@ -1148,22 +1094,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             deposit,
             system,
             user,
+            currentBuyer,
+            currentBuyerId,
         };
-        //
-        // await runServerless({
-        //     name: "submitFormData",
-        //     parameters: submissionData,
-        // }).then((response) => {
-        //     // setSubmittedData(response)
-        //     if (response.status === "SUCCESS") {
-        //         console.log(response.response)
-        //         sendAlert({message: "Form submitted successfully!"});
-        //     } else {
-        //         //     sendAlert({message: "Failed to submit the form. Please try again."});
-        //     }
-        //     setSubmitLoading(false);
-        //     // return true;
-        // });
+
+        console.log(submissionData)
         runServerless({
             name: "submitFormData",
             parameters: submissionData,
@@ -1175,7 +1110,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 sendAlert({message: "Form submitted successfully!"});
             } else {
                 //     sendAlert({message: "Failed to submit the form. Please try again."});
-            }setSubmittedData(submissionData)
+            }
+            setSubmittedData(submissionData)
             setSubmitLoading(false);
 
         });

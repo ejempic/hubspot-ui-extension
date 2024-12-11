@@ -21,7 +21,7 @@ const useBuyer = () => {
 
         Buyer_Info_Street_Number: '',
         Buyer_Info_Street_Name: '',
-        Buyer_Info_Suburb: [],
+        Buyer_Info_Suburb: '',
         Buyer_Info_State: '',
         Postcode: ''
     });
