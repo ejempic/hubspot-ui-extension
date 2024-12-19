@@ -16,10 +16,13 @@ const useDeposit = () => {
 
         Deposit_Promotion_Type: '',
         Deposit_Sales_Accept_Forecast: null, // Date
+        Deposit_Sales_Accept_Forecast_Text: null, // Date
         Deposit_Comment: '',
     });
 
     const handleDepositChange = (field, val) => {
+        console.log(val)
+
         setDeposit(prevDeposit => ({
             ...prevDeposit,
             [field]: val,

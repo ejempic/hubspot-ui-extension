@@ -53,7 +53,7 @@ exports.main = async (context = {}) => {
 async function createDeposit({ buyer, development, deposit, system, user, currentBuyer, currentBuyerId }) {
     const request = {
         properties: {
-            name: buyer.Buyer_1_Given_Name+ " " + buyer.Buyer_1_Surname,
+            name: buyer.Buyer_1_Given_Name+ " " + buyer.Buyer_1_Surname+ " - "+ deposit.Deposit_Deposit_Desc,
             // hubspot_deal_id: currentBuyerId,
 
             given_name: buyer.Buyer_1_Given_Name,
@@ -73,25 +73,25 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             buyer_2_business_number: buyer.Buyer_2_Business_Number,
             buyer_2_after_hours_number: buyer.Buyer_2_After_Hours,
 
-            buyer_info_state: buyer.Buyer_Info_Street_Number,
+            buyer_info_street_number: buyer.Buyer_Info_Street_Number,
             buyer_info_street_name: buyer.Buyer_Info_Street_Name,
-            buyer_info_street_number: buyer.Buyer_Info_Suburb,
-            buyer_info_suburb: buyer.Buyer_Info_State,
+            buyer_info_suburb: buyer.Buyer_Info_Suburb,
+            buyer_info_state: buyer.Buyer_Info_State,
             buyer_info_postcode: buyer.Postcode,
 
-            selected_developer: development.Development_Developer,
+            // selected_developer: development.Development_Developer,
             developer_description: development.Development_Developer_Desc,
-            selected_estate: development.Development_Estate,
+            // selected_estate: development.Development_Estate,
             estate_description: development.Development_Estate_Desc,
-            selected_display_centre: development.Development_Display_Centre,
+            // selected_display_centre: development.Development_Display_Centre,
             display_centre_description: development.Development_Display_Centre_Desc,
-            selected_house_type: development.Development_House_Type,
+            // selected_house_type: development.Development_House_Type,
             house_type_description: development.Development_House_Type_Desc,
             size: development.Development_Size,
-            selected_facade: development.Development_Facade,
-            selected_region: development.Development_Region,
+            // selected_facade: development.Development_Facade,
+            // selected_region: development.Development_Region,
 
-            is_the_land_titled_: development.Development_Address_Is_Land_Titled,
+            is_the_land_titled_: development.Development_Address_Is_Land_Titled === 'Yes',
             is_this_a_kdrb_or_vacant_lot_: development.Development_Address_Is_KDRB_OR_Vacant,
             street_number: development.Development_Address_Street_Number,// REQUIRED AND SHOW IF Land Title is Yes
             expected_titles: development.Development_Address_Expected_Titles,// REQUIRED AND SHOW IF Land Title is No
@@ -102,8 +102,8 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             state: development.Development_Address_State,
             postcode:development.Development_Address_Postcode,
 
-            site_start: development.Development_Address_Site_Start,
-            land_settlement: development.Development_Address_Site_Land_Settlement,
+            site_start: (development.Development_Address_Site_Start_Text),
+            land_settlement: (development.Development_Address_Site_Land_Settlement_Text),
 
             is_the_deposit_from_buyer_1_or_buyer_2_:deposit.Deposit_Who_Paying_Deposit,
             range:deposit.Deposit_Range,
@@ -114,21 +114,20 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             amount_paid:deposit.Deposit_Amount_Paid,
             amount_paid__print_:deposit.Deposit_Amount_Paid_Print,
             payment_method:deposit.Deposit_Payment_Method,
-
             terminal_number: deposit.Deposit_Payment_Terminal_Number, //REQURIE AND SHOW IF Deposit_Payment_Method  debit card/creditCard Value is Bpoint
-
-            selected_promotion_type: deposit.Deposit_Promotion_Type,
-            sales_accept_forecast: deposit.Deposit_Sales_Accept_Forecast, // Date
+            // selected_promotion_type: deposit.Deposit_Promotion_Type,
+            sales_accept_forecast: (deposit.Deposit_Sales_Accept_Forecast_Text), // Date
             comment:deposit.Deposit_Comment,
 
-            selected_team:system.System_Team,
+            // selected_team:system.System_Team,
+            // simonds_representative_manager__text_: user.firstName+ ' '+user.lastName,
             // simonds_representative: user.id
-            // simonds_representative: {
-            //  'owner_id': user.id,
+            // simonds_representative: JSON.stringify({
+            //  'owner_id': user.id, TODO: Wrong internal name
             //  'firstname': user.firstName,
             //  'email': user.email,
             //  'lastname': user.lastName,
-            // },
+            // }),
         },
         associations: [
             {
@@ -145,5 +144,37 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
         ],
     };
 
-    return await hubspotClient.crm.objects.basicApi.create('2-35849675', request);
+    const createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35849675', request);
+
+    await createAssociates({createdDeposit, buyer, development, deposit, system, user, currentBuyer, currentBuyerId });
+
+    return createdDeposit;
+}
+
+async function createAssociates({createdDeposit, buyer, development, deposit, system, user, currentBuyer, currentBuyerId }) {
+
+    const depositId = createdDeposit.id
+    const depositType = '2-35849675'
+    const associatesTypes = [
+        {name:'deposit_to_developers', typeId: '2-35849673', value: development.Development_Developer},
+        {name:'deposit_to_display_centre', typeId: '2-35849679', value: development.Development_Display_Centre},
+        {name:'deposit_to_estates', typeId: '2-35849678', value: development.Development_Estate},
+        {name:'deposit_to_facades', typeId: '2-35849680', value: development.Development_Facade},
+        {name:'deposit_to_house_types', typeId: '2-35849682', value: development.Development_House_Type},
+        {name:'deposit_to_promotion_types', typeId: '2-35849677', value: deposit.Deposit_Promotion_Type},
+        {name:'deposit_to_regions', typeId: '2-35849671', value: development.Development_Region},
+        {name:'deposit_to_teams', typeId: '2-35849672', value: system.System_Team},
+    ];
+    associatesTypes.map(async (associatesType) => {
+        if(associatesType.value){
+            await hubspotClient.crm.objects.associationsApi.create(
+                depositType,
+                depositId,
+                associatesType.typeId,
+                associatesType.value,
+                associatesType.name
+            );
+        }
+
+    })
 }

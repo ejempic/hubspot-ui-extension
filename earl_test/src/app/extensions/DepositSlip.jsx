@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback } from "react";
+import React, {useEffect, useState, useCallback} from "react";
 import axios from "axios";
 import {
     Divider,
@@ -23,7 +23,7 @@ import {
     Modal,
     ModalBody,
     ModalFooter,
-    LoadingSpinner
+    LoadingSpinner, ButtonRow
 } from "@hubspot/ui-extensions";
 import {
     yesNoOptions,
@@ -68,6 +68,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [devAddressSearch, setDevAddressSearch] = useState("");
     const [devAddressSuggestions, setDevAddressSuggestions] = useState([]);
     const [showDevAddressFields, setShowDevAddressFields] = useState(false);
+    const [allowEditDevAddressFields, setAllowEditDevAddressFields] = useState(false);
     const [isDevAddressSearchLoading, setIsDevAddressSearchLoading] = useState(false);
     const [isDevAddressSelectedLoading, setIsDevAddressSelectedLoading] = useState(false);
 
@@ -82,11 +83,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [houseTypes, setHouseTypes] = useState([]);
     const [promotionTypes, setPromotionTypes] = useState([]);
     const [teams, setTeams] = useState([]);
+    const [regions, setRegions] = useState([]);
 
     const [currentBuyerId, setCurrentBuyerId] = useState(null);
 
     const [showForm, setShowForm] = useState(false);
     const [showFirstButton, setShowFirstButton] = useState(false);
+    const [showSecondButton, setShowSecondButton] = useState(false);
 
     const [currentBuyer, setCurrentBuyer] = useState({
         contact_email: "",
@@ -94,9 +97,18 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         contact_last_name: "",
         contact_phone: "null"
     });
-
     const [dealDeposits, setDealDeposits] = useState(null);
+    const [currentDeposit, setCurrentDeposit] = useState(null);
 
+    // useEffect(() => {
+    //     console.log(currentBuyer)
+    // }, [currentBuyer]);
+    // useEffect(() => {
+    //     console.log(dealDeposits)
+    // }, [dealDeposits]);
+    // useEffect(() => {
+    //     console.log(user)
+    // }, [user]);
     useEffect(() => {
         runServerless({name: "fetchDropdownOptions"}).then((resp) => {
             if (resp.status === "SUCCESS") {
@@ -106,14 +118,27 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 setFacades(resp.response.data.CRM?.p_facades_collection?.items || []);
                 setHouseTypes(resp.response.data.CRM?.p_house_types_collection?.items || []);
                 setPromotionTypes(resp.response.data.CRM?.p_promotion_types_collection?.items || []);
-                setTeams(resp.response.data.CRM?.p_teams_collection?.items || []);
+                setRegions(resp.response.data.CRM?.p_regions_collection?.items || []);
+
+                const initialTeamOption = resp.response.data.CRM?.p_teams_collection?.items;
+
+                setTeams([{label: '--None--', value: '--None--'}, ...initialTeamOption.map(item => ({
+                    label: item.name, value: item.hs_object_id
+                }))] || []);
+
             }
-            setDeposit({...deposit, Deposit_Who_Paying_Deposit: 'Buyer 1'})
+            // setDeposit({...deposit, Deposit_Who_Paying_Deposit: 'Buyer 1'})
         });
     }, []);
+
+    const [whoisPayingOptionsFinal, setWhoisPayingOptionsFinal] = useState(whoisPayingOptions);
     useEffect(() => {
         if (hasBuyer2) {
-            setDeposit({...deposit, Deposit_Who_Paying_Deposit: 'Buyer 1'})
+            setWhoisPayingOptionsFinal(whoisPayingOptions)
+            setDeposit({...deposit, Deposit_Who_Paying_Deposit: ''})
+        }else{
+            setDeposit({...deposit, Deposit_Who_Paying_Deposit: whoisPayingOptions[0].value})
+            setWhoisPayingOptionsFinal([{label: 'Buyer 1', value: 'Buyer 1'}])
         }
     }, [hasBuyer2]);
     useEffect(() => {
@@ -127,18 +152,23 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             // console.log(resp);
             if (resp.status === "SUCCESS") {
                 setCurrentBuyer(resp.response.data.CRM.deal);
-                setDealDeposits(resp.response.data.CRM.deal?.associations.p_deposit_collection__deal_to_deposit.items);
+
+                const depositItems = resp.response.data.CRM.deal?.associations.p_deposit_collection__deal_to_deposit.items
+                setDealDeposits(depositItems);
+                console.log(depositItems)
+                if (depositItems.length === 0) {
+                    setShowFirstButton(true)
+                    setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[0].value})
+                } else {
+                    if (depositItems[0].deposit_type === "Initial Fee") {
+                        setShowSecondButton(true)
+                    }
+                    setCurrentDeposit(depositItems[0]);
+                }
             }
             setLoading(false);
-            setShowFirstButton(true)
         });
     }, [currentBuyerId]);
-    if(currentBuyer && dealDeposits){
-        console.log(currentBuyerId)
-        console.log(currentBuyer)
-        console.log(dealDeposits)
-    }
-
     useEffect(() => {
         handleBuyerChange('Buyer_1_Given_Name', currentBuyer.contact_first_name);
         handleBuyerChange('Buyer_1_Surname', currentBuyer.contact_last_name);
@@ -154,7 +184,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [system, setSystem] = useState({
         System_Team: '',
         System_Representative: user.firstName + " " + user.lastName, //login user
-        System_Company_Name: 'Not Set',
+        // System_Company_Name: 'Not Set',
     });
 
     const [validationMessage, setValidationMessage] = useState({
@@ -163,16 +193,27 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [isValid, setIsValid] = useState({
         Development_Address_Is_Land_Titled: true, Development_Address_Is_KDRB_OR_Vacant: true,
     });
+    const handleDevelopmentRegionChange = (region) => {
+        setDevelopment({...development, Development_Region: region})
+        const selectedRegion = regions.find(item => item.hs_object_id === region);
 
-    const whoisPayingOptionsFinal = buyer.Buyer_Add_Second_Buyer
-        ? whoisPayingOptions
-        : [{label: 'Buyer 1', value: 'Buyer 1'}];
-    const enterAddressManually = () => {
-        setShowBuyerAddressFields(true);
-        setIsAddressManually(true);
+        // If the region is found, extract the label
+        const regionLabel = selectedRegion ? selectedRegion.name : '';
+
+        if(region){
+            const filteredTeams = teams.filter(item => item.label.startsWith(regionLabel));
+            const filteredTeamOption = [{label: '--None--', value: '--None--'}, ...filteredTeams];
+
+            setTeams(filteredTeamOption || []);
+        }
     }
-    const enterDevAddressManually = () => {
+    const enterAddressManually = (checked) => {
+        setShowBuyerAddressFields(true);
+        setIsAddressManually(!checked);
+    }
+    const enterDevAddressManually = (checked) => {
         setShowDevAddressFields(true);
+        setAllowEditDevAddressFields(!checked);
     }
     const handleDevAddressSearch = async (searchValue) => {
 
@@ -183,7 +224,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
             const {response} = await runServerless({
                 name: "gmapsSearchAddress",
-                parameters: {searchValue: searchValue, googleMapsAPIKey: googleMapsAPIKey, placeId: false}
+                parameters: {searchValue: searchValue, googleMapsAPIKey: googleMapsAPIKey, placeId: false, suburb: true}
             });
             setIsDevAddressSearchLoading(false);
             console.log("address_suggestion", response.predictions);
@@ -236,10 +277,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             });
             setIsAddressSelectedLoading(false);
             const addressDetails = response.result;
+            console.log(addressDetails)
             const streetNumber = addressDetails.address_components.find((comp) => comp.types.includes("street_number"))?.long_name;
             const streetName = addressDetails.address_components.find((comp) => comp.types.includes("route"))?.long_name;
             const suburb = addressDetails.address_components.find((comp) => comp.types.includes("locality"))?.long_name;
-            const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.long_name;
+            const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.short_name;
             const postcode = addressDetails.address_components.find((comp) => comp.types.includes("postal_code"))?.long_name;
 
             handleBuyerChange('Buyer_Info_Street_Number', streetNumber || "")
@@ -265,7 +307,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             setIsDevAddressSelectedLoading(false);
             const addressDetails = response.result;
             const suburb = addressDetails.address_components.find((comp) => comp.types.includes("locality"))?.long_name;
-            const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.long_name;
+            const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.short_name;
             const postcode = addressDetails.address_components.find((comp) => comp.types.includes("postal_code"))?.long_name;
 
             handleDevelopmentChange('Development_Address_Suburb', suburb || "");
@@ -279,9 +321,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         }
     };
 
-    const handleChangePaymentMethod = (value)=>{
+    const handleChangePaymentMethod = (value) => {
         setDeposit({...deposit, Deposit_Payment_Method: value})
-        if((deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card')){
+        if ((deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card')) {
             setDeposit({...deposit, Deposit_Payment_Terminal_Number: 'Bpoint'})
         }
     }
@@ -443,31 +485,31 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 name="Buyer_Info_Street_Number"
                                 label="Street Number"
                                 value={buyer.Buyer_Info_Street_Number}
-                                readOnly={!isAddressManually}
+                                readOnly={isAddressManually}
                             />
                             <Input
                                 name="Buyer_Info_Street_Name"
                                 label="Street Name"
                                 value={buyer.Buyer_Info_Street_Name}
-                                readOnly={!isAddressManually}
+                                readOnly={isAddressManually}
                             />
                             <Input
                                 name="Buyer_Info_Suburb"
                                 label="Suburb"
                                 value={buyer.Buyer_Info_Suburb}
-                                readOnly={!isAddressManually}
+                                readOnly={isAddressManually}
                             />
                             <Input
                                 name="Buyer_Info_State"
                                 label="State"
                                 value={buyer.Buyer_Info_State}
-                                readOnly={!isAddressManually}
+                                readOnly={isAddressManually}
                             />
                             <Input
                                 name="Postcode"
                                 label="Postcode"
                                 value={buyer.Postcode}
-                                readOnly={!isAddressManually}
+                                readOnly={isAddressManually}
                             />
                         </>
                     )}
@@ -581,8 +623,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_Region"
                             placeholder=""
                             required={true}
-                            options={regionOptions}
-                            onChange={(value) => setDevelopment({...development, Development_Region: value})}
+                            options={regions.map(item => ({
+                                label: item.name, value: item.hs_object_id
+                            }))}
+                            onChange={(value) => handleDevelopmentRegionChange(value)}
                         />
                     </Tile>
                 </Accordion>
@@ -661,7 +705,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             <DateInput
                                 label="Expected Titles"
                                 name="Development_Address_Expected_Titles"
-                                onChange={(val) => handleDevelopmentChange("Development_Address_Expected_Titles", val)}
+                                onChange={(val) => {
+                                    handleDevelopmentChange("Development_Address_Expected_Titles", val)
+                                    handleDevelopmentChange("Development_Address_Expected_Titles_Text", baseToUnix(val))
+                                }}
                                 value={development.Development_Address_Expected_Titles}
                                 required
                                 format="L"
@@ -701,6 +748,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 name="Development_Address_Suburb"
                                 label="Suburb"
                                 required={true}
+                                readOnly={allowEditDevAddressFields}
                                 value={development.Development_Address_Suburb}
                                 onChange={(val) => handleDevelopmentChange("Development_Address_Suburb", val)}
                             />
@@ -708,6 +756,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 name="Development_Address_State"
                                 label="State"
                                 required={true}
+                                readOnly={allowEditDevAddressFields}
                                 value={development.Development_Address_State}
                                 onChange={(val) => handleDevelopmentChange("Development_Address_State", val)}
                             />
@@ -715,6 +764,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 name="Development_Address_Postcode"
                                 label="Postcode"
                                 required={true}
+                                readOnly={allowEditDevAddressFields}
                                 value={development.Development_Address_Postcode}
                                 onChange={(val) => handleDevelopmentChange("Development_Address_Postcode", val)}
                             />
@@ -722,14 +772,20 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         <DateInput
                             label="Site Start"
                             name="Development_Address_Site_Start"
-                            onChange={(val) => handleDevelopmentChange("Development_Address_Site_Start", val)}
+                            onChange={(val) => {
+                                handleDevelopmentChange("Development_Address_Site_Start", val)
+                                handleDevelopmentChange("Development_Address_Site_Start_Text", baseToUnix(val))
+                            }}
                             value={development.Development_Address_Site_Start}
                             format="L"
                         />
                         <DateInput
                             label="Land Settlement"
                             name="Development_Address_Site_Land_Settlement"
-                            onChange={(val) => handleDevelopmentChange("Development_Address_Site_Land_Settlement", val)}
+                            onChange={(val) => {
+                                handleDevelopmentChange("Development_Address_Site_Land_Settlement", val)
+                                handleDevelopmentChange("Development_Address_Site_Land_Settlement_Text", baseToUnix(val))
+                            }}
                             value={development.Development_Address_Site_Land_Settlement}
                             format="L"
                         />
@@ -772,8 +828,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                     <Select
                         label="Deposit Description"
                         name="Deposit_Deposit_Desc"
-                        placeholder=""
+                        readOnly
                         required={true}
+                        value={deposit.Deposit_Deposit_Desc}
                         options={depositDescriptionOptions}
                         onChange={(value) => setDeposit({...deposit, Deposit_Deposit_Desc: value})}
                     />
@@ -841,7 +898,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         label="Sales Accept Forecast"
                         name="Deposit_Sales_Accept_Forecast"
                         required={true}
-                        onChange={(val) => handleDepositChange("Deposit_Sales_Accept_Forecast", val)}
+                        timezone={'portalTz'}
+                        onChange={(val) => {
+                            handleDepositChange("Deposit_Sales_Accept_Forecast", val)
+                            handleDepositChange("Deposit_Sales_Accept_Forecast_Text", baseToUnix(val))
+                        }}
                         value={deposit.Deposit_Sales_Accept_Forecast}
                         format="L"
                     />
@@ -849,7 +910,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         label="Comment"
                         name="Deposit_Comment"
                         placeholder=""
-                        required={true}
                         value={deposit.Deposit_Comment}
                         onChange={(value) => setDeposit({...deposit, Deposit_Comment: value})}
                     />
@@ -870,9 +930,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         name="System_Team"
                         placeholder=""
                         required={true}
-                        options={[{label: '--None--', value: '--None--'}, ...teams.map(item => ({
-                            label: item.name, value: item.hs_object_id
-                        }))]}
+                        options={teams}
                         onChange={(value) => setSystem({...system, System_Team: value})}
                     />
                     <Input
@@ -883,14 +941,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         value={system.System_Representative}
                         onChange={(value) => setSystem({...system, System_Representative: value})}
                     />
-                    <Input
-                        label="Company Name"
-                        name="System_Company_Name"
-                        required={true}
-                        readOnly={true}
-                        value={system.System_Company_Name}
-                        onChange={(value) => setSystem({...system, System_Company_Name: value})}
-                    />
+                    {/*<Input*/}
+                    {/*    label="Company Name"*/}
+                    {/*    name="System_Company_Name"*/}
+                    {/*    required={true}*/}
+                    {/*    readOnly={true}*/}
+                    {/*    value={system.System_Company_Name}*/}
+                    {/*    onChange={(value) => setSystem({...system, System_Company_Name: value})}*/}
+                    {/*/>*/}
                 </Tile>
             </Flex>
         </>
@@ -1007,7 +1065,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Development_Address_Lot_No",
             label: "Lot Number",
-            required: () =>false,
+            required: () => false,
         },
         {
             name: "Development_Address_Suburb",
@@ -1039,10 +1097,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         },
         {name: "Deposit_Promotion_Type", label: "Promotion Type", required: true},
         {name: "Deposit_Sales_Accept_Forecast", label: "Sales Accept Forecast", required: true},
-        {name: "Deposit_Comment", label: "Comment", required: true},
 
         {name: "System_Team", label: "Team", required: true},
-        {name: "System_Representative", label: "Simonds Representative", required: true},
+        // {name: "System_Representative", label: "Simonds Representative", required: true},
         {name: "System_Company_Name", label: "Company Name", required: true},
     ];
 
@@ -1092,6 +1149,16 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [submitLoading, setSubmitLoading] = useState(null);
     const [validated, setValidated] = useState(false);
 
+    function baseToUnix(baseDate) {
+        console.log(baseDate)
+        const date = new Date(Date.UTC(baseDate.year, baseDate.month, baseDate.date));
+
+        const unix = date.getTime(); // Convert milliseconds to seconds
+        console.log(unix)
+
+        return unix;
+
+    }
     const generateDeal = () => {
 
         const submissionData = {
@@ -1131,8 +1198,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         console.log(validationError)
         console.log("validated")
         console.log(validated)
-        if(!validateForm()){
-            // return;
+        if (!validateForm()) {
+            return;
         }
         console.log("validationError 1")
         setValidated(true);
@@ -1141,7 +1208,247 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         setSubmitted(false)
     };
 
-    const initialDisplay =(
+    const readonlyBuyerDetails = (currentDeposit &&
+        <Flex gap="sm" direction='column'>
+            <Heading>
+                <Icon name="contact"/> Buyer Information
+            </Heading>
+
+            <Accordion title={currentDeposit.add_second_buyer_details.value ? "Buyer 1 Details" : "Buyer Details"}
+                       size="sm" defaultOpen={true}>
+                <Tile compact={true}>
+                    <DescriptionList direction="column">
+                        <DescriptionListItem label={'Given Name'}>
+                            <Text>{currentDeposit.given_name || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Surname'}>
+                            <Text>{currentDeposit.buyer_1_surname || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Email'}>
+                            <Text>{currentDeposit.buyer_1_email || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Mobile'}>
+                            <Text>{currentDeposit.buyer_1_mobile || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Business Number'}>
+                            <Text>{currentDeposit.buyer_1_business_number || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'After Hours Number'}>
+                            <Text>{currentDeposit.buyer_1_after_hours_number || '--'}</Text>
+                        </DescriptionListItem>
+                    </DescriptionList>
+                </Tile>
+            </Accordion>
+
+            <Divider/>
+            <Accordion title="Buyer 2 Details" size="sm" defaultOpen={true}>
+                <Tile compact={true}>
+                    <DescriptionList direction="column">
+                        <DescriptionListItem label={'Given Name'}>
+                            <Text>{currentDeposit.buyer_2_given_name || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Surname'}>
+                            <Text>{currentDeposit.buyer_2_surname || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Email'}>
+                            <Text>{currentDeposit.buyer_2_email || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Mobile'}>
+                            <Text>{currentDeposit.buyer_2_mobile || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Business Number'}>
+                            <Text>{currentDeposit.buyer_2_business_number || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'After Hours Number'}>
+                            <Text>{currentDeposit.buyer_2_after_hours_number || '--'}</Text>
+                        </DescriptionListItem>
+                    </DescriptionList>
+                </Tile>
+            </Accordion>
+
+            <Divider/>
+
+            <Accordion title="Buyer Current Address" size="sm" defaultOpen={true}>
+                <Tile compact={true}>
+                    <DescriptionList direction="column">
+                        <DescriptionListItem label={'Buyer Info Street Number'}>
+                            <Text>{currentDeposit.buyer_info_street_number || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Buyer Info Street Name'}>
+                            <Text>{currentDeposit.buyer_info_street_name || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Buyer Info Suburb'}>
+                            <Text>{currentDeposit.buyer_info_suburb || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Buyer Info State'}>
+                            <Text>{currentDeposit.buyer_info_state?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Buyer Info Postcode'}>
+                            <Text>{currentDeposit.buyer_info_postcode || '--'}</Text>
+                        </DescriptionListItem>
+                    </DescriptionList>
+                </Tile>
+            </Accordion>
+        </Flex>);
+
+    const readonlyDevelopmentDetails = (currentDeposit &&
+        <Flex gap="sm" direction='column'>
+            <Heading>
+                <Icon name="home"/> Development Details
+            </Heading>
+            <Accordion title="Development Details" size="sm" defaultOpen={false}>
+                <Tile compact={true}>
+                    <DescriptionList direction="column">
+                        <DescriptionListItem label={'Developer'}>
+                            <Text>{(currentDeposit.selected_developer === 'unknown' ? currentDeposit.developer_description : currentDeposit.selected_developer) || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Estate'}>
+                            <Text>{(currentDeposit.selected_estate === 'unknown' ? currentDeposit.estate_description : currentDeposit.selected_estate) || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Display Centre'}>
+                            <Text>{(currentDeposit.selected_display_centre === 'unknown' ? currentDeposit.display_centre_description : currentDeposit.selected_display_centre) || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'House Type'}>
+                            <Text>{(currentDeposit.selected_house_type === 'unknown' ? currentDeposit.house_type_description : currentDeposit.selected_house_type) || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'House Size'}>
+                            <Text>{currentDeposit.size || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Facade'}>
+                            <Text>{currentDeposit.selected_facade || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Region'}>
+                            <Text>{currentDeposit.selected_region || '--'}</Text>
+                        </DescriptionListItem>
+                    </DescriptionList>
+                </Tile>
+            </Accordion>
+            <Divider/>
+            <Accordion title="Development Address" size="sm" defaultOpen={false}>
+
+                <Tile compact={true}>
+
+                    <DescriptionList direction="column">
+                        <DescriptionListItem label={'Is the Land Titled?'}>
+                            <Text>{currentDeposit.is_the_land_titled_?'Yes':'No' || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Is this a KDRB or Vacant Lot?'}>
+                            <Text>{currentDeposit.is_this_a_kdrb_or_vacant_lot_?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Street Number'}>
+                            <Text>{currentDeposit.street_number || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Expected Titles'}>
+                            <Text>{currentDeposit.expected_titles || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Lot Number'}>
+                            <Text>{currentDeposit.lot_number || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Suburb'}>
+                            <Text>{currentDeposit.suburb || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'State'}>
+                            <Text>{currentDeposit.state?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Postcode'}>
+                            <Text>{currentDeposit.postcode || '--'}</Text>
+                        </DescriptionListItem>
+
+                        <DescriptionListItem label={'Site Start'}>
+                            <Text>{currentDeposit.site_start || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label={'Land Settlement'}>
+                            <Text>{currentDeposit.land_settlement || '--'}</Text>
+                        </DescriptionListItem>
+                    </DescriptionList>
+                </Tile>
+            </Accordion>
+        </Flex>
+    )
+
+    const readonlyDepositDetails =  (currentDeposit &&
+        <Flex gap="sm" direction='column'>
+            <Heading>
+            <Icon name="shoppingCart"/> Deposit Details
+        </Heading>
+            <Tile compact={true}>
+                    <DescriptionList direction="column">
+                        <DescriptionListItem label="Who's paying this deposit?">
+                            <Text>{currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Range">
+                            <Text>{currentDeposit.range?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Deposit Source">
+                            <Text>{currentDeposit.deposit_source?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Deposit Description">
+                            <Text>{currentDeposit.deposit_type || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Package Type">
+                            <Text>{currentDeposit.package_type?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Context">
+                            <Text>{currentDeposit.context?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Amount Paid">
+                            <Text>{currentDeposit.amount_paid || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label='Amount Paid Print'>
+                            <Text>{currentDeposit.amount_paid__print_ || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Payment Method">
+                            <Text>{currentDeposit.payment_method?.value || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Terminal Number">
+                            <Text>{currentDeposit.terminal_number || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Promotion Types">
+                            <Text>{currentDeposit.selected_promotion_type || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Sales Accept Forecast">
+                            <Text>{currentDeposit.sales_accept_forecast || '--'}</Text>
+                        </DescriptionListItem>
+                        <DescriptionListItem label="Comment">
+                            <Text>{currentDeposit.comment || '--'}</Text>
+                        </DescriptionListItem>
+                    </DescriptionList>
+                </Tile>
+        </Flex>
+   );
+
+    const readonlySystemDetails =  (currentDeposit &&
+        <Flex gap="sm" direction='column'>
+            <Heading>
+            <Icon name="settings"/> System Details
+        </Heading>
+            <Tile compact={true}>
+                <DescriptionList direction="column">
+                    <DescriptionListItem label="Team">
+                        <Text>{currentDeposit.selected_team || '--'}</Text>
+                    </DescriptionListItem>
+                </DescriptionList>
+                <DescriptionList direction="column">
+                    <DescriptionListItem label="Simonds Representative">
+                        <Text>{currentDeposit.simonds_representative_manager__text_}</Text>
+                        {/*<Text>{currentDeposit.simonds_representative || '--'}</Text>*/}
+                    </DescriptionListItem>
+                </DescriptionList>
+            </Tile>
+        </Flex>
+    );
+
+    const depositMadeDisplay = (
+        currentDeposit &&
+        <Flex gap="lg" direction='column'>
+            {readonlyBuyerDetails}
+            {readonlyDevelopmentDetails}
+            {readonlyDepositDetails}
+            {readonlySystemDetails}
+        </Flex>
+    );
+
+    const initialDisplay = (
         <>
             <DescriptionList direction="row">
                 <DescriptionListItem label={'First Name'}>
@@ -1161,9 +1468,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             </DescriptionList>
             <DescriptionList direction="row">
                 <DescriptionListItem label={'Initial Fee Deposit'}>
-                    <Text>--</Text>
                     {
-                        showFirstButton && (
+                        showFirstButton ? (
                             <Button
                                 onClick={() => {
                                     setShowForm(true)
@@ -1175,16 +1481,40 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             >
                                 Create Initial Fee Deposit
                             </Button>
-                        )
+                        ) :
+                        <Text>--</Text>
                     }
-                </DescriptionListItem>
+                        </DescriptionListItem>
                 <DescriptionListItem label={'Preliminary Fee Deposit'}>
-                    <Text>--</Text>
+                    {
+                        showSecondButton ? (
+                            <Button
+                                onClick={() => {
+                                    console.log('preliminary button clicked');
+                                }}
+                                variant="primary"
+                                size="sm"
+                                type="button"
+                            >
+                                Pay for Preliminary Deposit
+                            </Button>
+                        ) :
+                            <Text>--</Text>
+                    }
                 </DescriptionListItem>
                 <DescriptionListItem label={'Total Paid Amount'}>
                     <Text>--</Text>
                 </DescriptionListItem>
-            </DescriptionList>
+                </DescriptionList>
+            <Flex gap="sm" direction='column'>
+                <Flex gap="sm" direction='row' wrap='wrap' justify='end'>
+
+
+
+                </Flex>
+
+                {depositMadeDisplay}
+            </Flex>
         </>
     )
     return (
@@ -1208,31 +1538,33 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                         {submitLoading && <LoadingSpinner size='xs'></LoadingSpinner>}
                                         <Button
                                             overlay={
-                                                ( !submitted? null  : validated ? null: <Modal id="validation-modal" title="Validation Error" width="md">
-                                                    <ModalBody>
-                                                        <>
-                                                            {validating &&
-                                                                <LoadingSpinner size='xs' label={"Validating.."}></LoadingSpinner>}
+                                                (!submitted ? null : validated ? null :
+                                                    <Modal id="validation-modal" title="Validation Error" width="md">
+                                                        <ModalBody>
+                                                            <>
+                                                                {validating &&
+                                                                    <LoadingSpinner size='xs'
+                                                                                    label={"Validating.."}></LoadingSpinner>}
 
 
-                                                            {
-                                                                validationError.length>0 && <>
-                                                                    <Text> The following fields are required: </Text>
-                                                                    <List variant="ordered-styled">
-                                                                        {validationError.map((validationErr) => (validationErr))}
-                                                                    </List>
-                                                                </>
-                                                            }
+                                                                {
+                                                                    validationError.length > 0 && <>
+                                                                        <Text> The following fields are required: </Text>
+                                                                        <List variant="ordered-styled">
+                                                                            {validationError.map((validationErr) => (validationErr))}
+                                                                        </List>
+                                                                    </>
+                                                                }
 
-                                                        </>
-                                                        {/*<Text>{JSON.stringify(validationError)}</Text>*/}
-                                                        {/*<Text>{JSON.stringify(buyer)}</Text>*/}
-                                                    </ModalBody>
-                                                    <ModalFooter>
-                                                        <Button
-                                                            onClick={() => actions.closeOverlay('validation-modal')}>Ok</Button>
-                                                    </ModalFooter>
-                                                </Modal>)
+                                                            </>
+                                                            {/*<Text>{JSON.stringify(validationError)}</Text>*/}
+                                                            {/*<Text>{JSON.stringify(buyer)}</Text>*/}
+                                                        </ModalBody>
+                                                        <ModalFooter>
+                                                            <Button
+                                                                onClick={() => actions.closeOverlay('validation-modal')}>Ok</Button>
+                                                        </ModalFooter>
+                                                    </Modal>)
                                             }
                                             onClick={handleSubmit} disabled={submitLoading} size="md" type="submit"
                                             variant="primary">Submit</Button>

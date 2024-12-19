@@ -1,11 +1,11 @@
 export const yesNoOptions = [{label: 'Yes', value: 'Yes'}, {label: 'No', value: 'No'}];
 
 export const KDRBOptions = [{label: 'KDRB', value: 'KDRB'}, {label: 'Vacant Lot', value: 'Vacant Lot'}];
-export const regionOptions = [{label: 'Melbourne Metro', value: 'Melbourne Metro'}, {
-    label: 'New South Wales', value: 'New South Wales'
-}, {label: 'Queensland', value: 'Queensland'}, {label: 'Regional', value: 'Regional'}, {
-    label: 'South Australia', value: 'South Australia'
-},];
+// export const regionOptions = [{label: 'Melbourne Metro', value: 'Melbourne Metro'}, {
+//     label: 'New South Wales', value: 'New South Wales'
+// }, {label: 'Queensland', value: 'Queensland'}, {label: 'Regional', value: 'Regional'}, {
+//     label: 'South Australia', value: 'South Australia'
+// },];
 
 export const rangeOptions = [
     {label: 'Elevate', value: 'Elevate'},

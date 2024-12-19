@@ -19,6 +19,7 @@ const useDevelopment = () => {
         Development_Address_Is_KDRB_OR_Vacant: '',
         Development_Address_Street_Number: '',// REQUIRED AND SHOW IF Land Title is Yes
         Development_Address_Expected_Titles: null,// REQUIRED AND SHOW IF Land Title is No
+        Development_Address_Expected_Titles_Text: null,// REQUIRED AND SHOW IF Land Title is No
         Development_Address_Lot_No: '', // REQUIRED AND SHOW IF is KDRB or Vacant is Vacant Lot
         Development_Address_Street_Name: '',
 
@@ -28,9 +29,12 @@ const useDevelopment = () => {
 
         Development_Address_Site_Start: null,
         Development_Address_Site_Land_Settlement: null,
+        Development_Address_Site_Start_Text: null,
+        Development_Address_Site_Land_Settlement_Text: null,
     });
 
     const handleDevelopmentChange = (field, val) => {
+        console.log(val)
         setDevelopment(prevDevelopment => ({
             ...prevDevelopment,
             [field]: val,

@@ -65,6 +65,12 @@ const fetchDevelopersAndEstates = (token) => {
         status
       }
     }
+    p_regions_collection(filter: {status__neq: "inactive"}) {
+      items {
+        name
+        hs_object_id
+      }
+    }
   }
 }
 `;
