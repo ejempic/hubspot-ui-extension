@@ -11,9 +11,7 @@ const useDeposit = () => {
         Deposit_Amount_Paid: '',
         Deposit_Amount_Paid_Print: '',
         Deposit_Payment_Method: '',
-
-        Deposit_Payment_Terminal_Number: '', //REQURIE AND SHOW IF Deposit_Payment_Method  debit card/creditCard Value is Bpoint
-
+        Deposit_Payment_Terminal_Number: 'Bpoint', //REQURIE AND SHOW IF Deposit_Payment_Method  debit card/creditCard Value is Bpoint
         Deposit_Promotion_Type: '',
         Deposit_Sales_Accept_Forecast: null, // Date
         Deposit_Sales_Accept_Forecast_Text: null, // Date
@@ -21,8 +19,6 @@ const useDeposit = () => {
     });
 
     const handleDepositChange = (field, val) => {
-        console.log(val)
-
         setDeposit(prevDeposit => ({
             ...prevDeposit,
             [field]: val,

@@ -6,6 +6,7 @@
   "dependencies": {
     "@hubspot/ui-extensions": "^0.8.33",
     "axios": "^1.7.7",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "number-to-words": "^1.2.4"
   }
 }

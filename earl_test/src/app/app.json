@@ -9,6 +9,7 @@
     "crm.objects.deals.write",
     "collector.graphql_schema.read",
     "collector.graphql_query.execute",
+    "crm.objects.owners.read",
     "crm.objects.custom.write",
     "crm.objects.custom.read",
     "crm.schemas.custom.read",

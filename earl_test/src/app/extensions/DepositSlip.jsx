@@ -1,10 +1,12 @@
 import React, {useEffect, useState, useCallback} from "react";
+import {toWords} from 'number-to-words';
 import axios from "axios";
 import {
     Divider,
     Link,
     Button,
     Text,
+    Dropdown,
     Input,
     Select,
     Flex,
@@ -61,14 +63,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [buyerAddressSearch, setBuyerAddressSearch] = useState("");
     const [buyerAddressSuggestions, setBuyerAddressSuggestions] = useState([]);
     const [showBuyerAddressFields, setShowBuyerAddressFields] = useState(false);
-    const [isAddressManually, setIsAddressManually] = useState(false);
+    const [isAddressManually, setIsAddressManually] = useState(true);
     const [isAddressSearchLoading, setIsAddressSearchLoading] = useState(false);
     const [isAddressSelectedLoading, setIsAddressSelectedLoading] = useState(false);
 
     const [devAddressSearch, setDevAddressSearch] = useState("");
     const [devAddressSuggestions, setDevAddressSuggestions] = useState([]);
     const [showDevAddressFields, setShowDevAddressFields] = useState(false);
-    const [allowEditDevAddressFields, setAllowEditDevAddressFields] = useState(false);
+    const [allowEditDevAddressFields, setAllowEditDevAddressFields] = useState(true);
     const [isDevAddressSearchLoading, setIsDevAddressSearchLoading] = useState(false);
     const [isDevAddressSelectedLoading, setIsDevAddressSelectedLoading] = useState(false);
 
@@ -84,12 +86,18 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [promotionTypes, setPromotionTypes] = useState([]);
     const [teams, setTeams] = useState([]);
     const [regions, setRegions] = useState([]);
+    const [optionsLoaded, setOptionsLoaded] = useState(false);
 
+    const depositTitleInitial = 'Deposit Details';
+    const [depositTitle, setDepositTitle] = useState(depositTitleInitial);
+    const [depositShow, setDepositShow] = useState(false);
+    const [developmentShow, setDevelopmentShow] = useState(false);
     const [currentBuyerId, setCurrentBuyerId] = useState(null);
 
     const [showForm, setShowForm] = useState(false);
     const [showFirstButton, setShowFirstButton] = useState(false);
     const [showSecondButton, setShowSecondButton] = useState(false);
+    const [showTerminalNumber, setShowTerminalNumber] = useState(false);
 
     const [currentBuyer, setCurrentBuyer] = useState({
         contact_email: "",
@@ -99,6 +107,17 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     });
     const [dealDeposits, setDealDeposits] = useState(null);
     const [currentDeposit, setCurrentDeposit] = useState(null);
+    const [initialDepositFee, setInitialDepositFee] = useState('--');
+    const [prelimDepositFee, setPrelimDepositFee] = useState('--');
+    const [totalDepositFee, setTotalDepositFee] = useState('--');
+    const handleNumberChange = (value) => {
+        handleDepositChange("Deposit_Amount_Paid", value)
+        handleDepositChange("Deposit_Amount_Paid_Print", capitalizeWords(toWords(value)))
+    };
+
+    function capitalizeWords(str) {
+        return str.replace(/\b\w/g, char => char.toUpperCase());
+    }
 
     // useEffect(() => {
     //     console.log(currentBuyer)
@@ -106,9 +125,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     // useEffect(() => {
     //     console.log(dealDeposits)
     // }, [dealDeposits]);
-    // useEffect(() => {
-    //     console.log(user)
-    // }, [user]);
     useEffect(() => {
         runServerless({name: "fetchDropdownOptions"}).then((resp) => {
             if (resp.status === "SUCCESS") {
@@ -125,7 +141,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 setTeams([{label: '--None--', value: '--None--'}, ...initialTeamOption.map(item => ({
                     label: item.name, value: item.hs_object_id
                 }))] || []);
-
+                setOptionsLoaded(true);
             }
             // setDeposit({...deposit, Deposit_Who_Paying_Deposit: 'Buyer 1'})
         });
@@ -136,7 +152,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         if (hasBuyer2) {
             setWhoisPayingOptionsFinal(whoisPayingOptions)
             setDeposit({...deposit, Deposit_Who_Paying_Deposit: ''})
-        }else{
+        } else {
             setDeposit({...deposit, Deposit_Who_Paying_Deposit: whoisPayingOptions[0].value})
             setWhoisPayingOptionsFinal([{label: 'Buyer 1', value: 'Buyer 1'}])
         }
@@ -155,20 +171,159 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
                 const depositItems = resp.response.data.CRM.deal?.associations.p_deposit_collection__deal_to_deposit.items
                 setDealDeposits(depositItems);
-                console.log(depositItems)
+                setDepositTitle(depositTitleInitial)
                 if (depositItems.length === 0) {
                     setShowFirstButton(true)
                     setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[0].value})
                 } else {
-                    if (depositItems[0].deposit_type === "Initial Fee") {
+                    setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[1].value})
+                    let initialDeposit = depositItems.filter(item => item.deposit_type === 'Initial Fee');
+                    let totalAmount = 0;
+                    if (initialDeposit.length > 0) {
+                        initialDeposit = initialDeposit[0];
                         setShowSecondButton(true)
+                        totalAmount+=parseFloat(initialDeposit.amount_paid);
+                        const amountPaid = new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD'
+                        }).format(initialDeposit.amount_paid);
+                        setInitialDepositFee(amountPaid);
+                        setDepositTitle("Deposit Details for Preliminary Fee")
                     }
-                    setCurrentDeposit(depositItems[0]);
+                    setCurrentDeposit(initialDeposit);
+
+                    let prelimDeposit = depositItems.filter(item => item.deposit_type === 'Preliminary Fee');
+                    if (prelimDeposit.length > 0) {
+                        prelimDeposit = prelimDeposit[0];
+                        setShowSecondButton(false)
+                        totalAmount+=parseFloat(prelimDeposit.amount_paid);
+                        const amountPaid = new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD'
+                        }).format(prelimDeposit.amount_paid);
+                        setPrelimDepositFee(amountPaid);
+                    }
+
+                    setShowTerminalNumber(checkIfPaymentMethodIsCard(initialDeposit.payment_method?.value) )
+                    const amountPaid = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD'
+                    }).format(totalAmount);
+                    setTotalDepositFee(amountPaid)
                 }
             }
             setLoading(false);
         });
     }, [currentBuyerId]);
+
+    useEffect(() => {
+        if (currentDeposit && optionsLoaded) {
+            console.log("========================")
+            console.log("currentDeposit")
+            console.log(currentDeposit)
+            setShowBuyerAddressFields(true);
+            setShowDevAddressFields(true);
+            setDevelopmentShow(true);
+            setDepositShow(true);
+            handleBuyerChange('Buyer_1_Given_Name', currentDeposit.given_name);
+            handleBuyerChange('Buyer_1_Surname', currentDeposit.buyer_1_surname);
+            handleBuyerChange('Buyer_1_Email_Not_Provided', currentDeposit.buyer_1_email_not_provided === '');
+            handleBuyerChange('Buyer_1_Email', currentDeposit.buyer_1_email);
+            handleBuyerChange('Buyer_1_Mobile', currentDeposit.buyer_1_mobile);
+            handleBuyerChange('Buyer_1_Business_Number', currentDeposit.buyer_1_business_number);
+            handleBuyerChange('Buyer_1_After_Hours', currentDeposit.buyer_1_after_hours_number);
+            setHasBuyer2(currentDeposit.add_second_buyer_details)
+            handleBuyerChange('Buyer_Add_Second_Buyer', currentDeposit.add_second_buyer_details?.value);
+
+            handleBuyerChange('Buyer_2_Given_Name', currentDeposit.buyer_2_given_name);
+            handleBuyerChange('Buyer_2_Surname', currentDeposit.buyer_2_surname);
+            handleBuyerChange('Buyer_2_Email_Not_Provided', currentDeposit.buyer_2_email_not_provided);
+            handleBuyerChange('Buyer_2_Email', currentDeposit.buyer_2_email);
+            handleBuyerChange('Buyer_2_Mobile', currentDeposit.buyer_2_mobile);
+            handleBuyerChange('Buyer_2_Business_Number', currentDeposit.buyer_2_business_number);
+            handleBuyerChange('Buyer_2_After_Hours', currentDeposit.buyer_2_after_hours_number);
+            handleBuyerChange('Buyer_Info_Street_Number', currentDeposit.buyer_info_street_number);
+            handleBuyerChange('Buyer_Info_Street_Name', currentDeposit.buyer_info_street_name);
+            handleBuyerChange('Buyer_Info_Suburb', currentDeposit.buyer_info_suburb);
+            handleBuyerChange('Buyer_Info_State', currentDeposit.buyer_info_state?.value);
+            handleBuyerChange('Postcode', currentDeposit.buyer_info_postcode);
+
+            handleDevelopmentChange('Development_Developer', filterValuePerLabel(developers,currentDeposit.selected_developer));
+            handleDevelopmentChange('Development_Developer_Desc', currentDeposit.developer_description);
+            handleDevelopmentChange('Development_Estate', filterValuePerLabel(estates,currentDeposit.selected_estate));
+            handleDevelopmentChange('Development_Estate_Desc', currentDeposit.estate_description);
+            handleDevelopmentChange('Development_Display_Centre', filterValuePerLabel(displayCentre, currentDeposit.selected_display_centre));
+            handleDevelopmentChange('Development_Display_Centre_Desc', currentDeposit.display_centre_description);
+            handleDevelopmentChange('Development_House_Type', filterValuePerLabel(houseTypes, currentDeposit.selected_house_type));
+            handleDevelopmentChange('Development_House_Type_Desc', currentDeposit.house_type_description);
+            handleDevelopmentChange('Development_Size', currentDeposit.size);
+            handleDevelopmentChange('Development_Facade', filterValuePerLabel(facades, currentDeposit.selected_facade));
+            handleDevelopmentChange('Development_Region', filterValuePerLabel(regions, currentDeposit.selected_region));
+
+            handleDevelopmentChange('Development_Address_Is_Land_Titled', currentDeposit.is_the_land_titled_ ? 'Yes' : 'No' );
+            handleDevelopmentChange('Development_Address_Is_KDRB_OR_Vacant', currentDeposit.is_this_a_kdrb_or_vacant_lot_?.value);
+            handleDevelopmentChange('Development_Address_Street_Number', currentDeposit.street_number);
+            handleDevelopmentChange('Development_Address_Expected_Titles', unixToBase(currentDeposit.expected_titles));
+            handleDevelopmentChange('Development_Address_Expected_Titles_Text', currentDeposit.expected_titles);
+            handleDevelopmentChange('Development_Address_Lot_No', currentDeposit.lot_number);
+            handleDevelopmentChange('Development_Address_Street_Name', currentDeposit.street_name);
+            handleDevelopmentChange('Development_Address_Suburb', currentDeposit.suburb);
+            handleDevelopmentChange('Development_Address_State', currentDeposit.state?.value);
+            handleDevelopmentChange('Development_Address_Postcode', currentDeposit.postcode);
+
+            handleDevelopmentChange('Development_Address_Site_Start', unixToBase(currentDeposit.site_start));
+            handleDevelopmentChange('Development_Address_Site_Start_Text', currentDeposit.site_start);
+            handleDevelopmentChange('Development_Address_Site_Land_Settlement', unixToBase(currentDeposit.land_settlement));
+            handleDevelopmentChange('Development_Address_Site_Land_Settlement_Text', currentDeposit.land_settlement);
+
+            handleDepositChange('Deposit_Who_Paying_Deposit', filterValuePerLabel(whoisPayingOptionsFinal, currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value, 'value','value'));
+            handleDepositChange('Deposit_Range', filterValuePerLabel(rangeOptions, currentDeposit.range?.value, 'value', 'value'));
+            handleDepositChange('Deposit_Deposit_Source', filterValuePerLabel(depositSourceOptions, currentDeposit.deposit_source?.value, 'value', 'value'));
+            handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[1].value);
+            handleDepositChange('Deposit_Package_Type', filterValuePerLabel(packageTypeOptions, currentDeposit.package_type?.value,'value', 'value'));
+            handleDepositChange('Deposit_Context', filterValuePerLabel(contextOptions, currentDeposit.context?.value,'value', 'value'));
+            handleDepositChange('Deposit_Amount_Paid', currentDeposit.amount_paid);
+            handleDepositChange('Deposit_Amount_Paid_Print', currentDeposit.amount_paid__print_);
+            handleDepositChange('Deposit_Payment_Method', currentDeposit.payment_method?.value);
+            handleDepositChange('Deposit_Payment_Terminal_Number', currentDeposit.terminal_number);
+            handleDepositChange('Deposit_Promotion_Type', filterValuePerLabel(promotionTypes, currentDeposit.selected_promotion_type));
+            handleDepositChange('Deposit_Sales_Accept_Forecast', unixToBase(currentDeposit.sales_accept_forecast));
+            handleDepositChange('Deposit_Sales_Accept_Forecast_Text', currentDeposit.sales_accept_forecast);
+            handleDepositChange('Deposit_Comment', currentDeposit.comment);
+
+            const populateTeam = teams.filter(item => item.label === currentDeposit.selected_team);
+
+            if(populateTeam && populateTeam.length > 0){
+                setSystem({...system,
+                    System_Team: populateTeam?populateTeam[0].value:'',
+                    System_Representative: currentDeposit.simonds_representative?.firstname + ' ' + currentDeposit.simonds_representative?.lastname,
+                })
+            }
+        }
+    }, [currentDeposit, optionsLoaded, whoisPayingOptionsFinal]);
+
+    /**
+     *
+     * @param options array
+     * @param value string
+     * @param key filter key that the value you want to connect
+     * @param valueKey key value you want to get
+     * @returns {*|string}
+     */
+    function filterValuePerLabel(options, value, key =  'name', valueKey = 'hs_object_id'){
+        const filter = options.filter(item => item[key] === value)
+        // console.log("=========")
+        // console.log("options")
+        // console.log(options)
+        // console.log(value)
+        // console.log(filter)
+        if(filter && filter.length > 0 ){
+            // console.log(filter[0])
+            return filter[0][valueKey];
+        }
+        // console.log("========")
+        return '';
+    }
     useEffect(() => {
         handleBuyerChange('Buyer_1_Given_Name', currentBuyer.contact_first_name);
         handleBuyerChange('Buyer_1_Surname', currentBuyer.contact_last_name);
@@ -200,11 +355,12 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         // If the region is found, extract the label
         const regionLabel = selectedRegion ? selectedRegion.name : '';
 
-        if(region){
+        if (region) {
             const filteredTeams = teams.filter(item => item.label.startsWith(regionLabel));
             const filteredTeamOption = [{label: '--None--', value: '--None--'}, ...filteredTeams];
 
             setTeams(filteredTeamOption || []);
+            setSystem({...system, System_Team: ""})
         }
     }
     const enterAddressManually = (checked) => {
@@ -277,7 +433,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             });
             setIsAddressSelectedLoading(false);
             const addressDetails = response.result;
-            console.log(addressDetails)
             const streetNumber = addressDetails.address_components.find((comp) => comp.types.includes("street_number"))?.long_name;
             const streetName = addressDetails.address_components.find((comp) => comp.types.includes("route"))?.long_name;
             const suburb = addressDetails.address_components.find((comp) => comp.types.includes("locality"))?.long_name;
@@ -309,7 +464,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             const suburb = addressDetails.address_components.find((comp) => comp.types.includes("locality"))?.long_name;
             const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.short_name;
             const postcode = addressDetails.address_components.find((comp) => comp.types.includes("postal_code"))?.long_name;
-
             handleDevelopmentChange('Development_Address_Suburb', suburb || "");
             handleDevelopmentChange('Development_Address_State', state || "");
             handleDevelopmentChange('Development_Address_Postcode', postcode || "");
@@ -323,9 +477,16 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
     const handleChangePaymentMethod = (value) => {
         setDeposit({...deposit, Deposit_Payment_Method: value})
-        if ((deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card')) {
+        const paymentIsCard = checkIfPaymentMethodIsCard(value);
+        if (paymentIsCard) {
             setDeposit({...deposit, Deposit_Payment_Terminal_Number: 'Bpoint'})
+            setShowTerminalNumber(true)
+        }else{
+            setShowTerminalNumber(false)
         }
+    }
+    const checkIfPaymentMethodIsCard = (value) => {
+        return (value === 'Credit Card' || value === 'Debit Card')
     }
 
     // Call serverless function to execute with parameters.
@@ -413,13 +574,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                 required={true}
                                 onChange={(val) => handleBuyerChange("Buyer_2_Surname", val)}
                             />
-                            <Checkbox
-                                checked={buyer.Buyer_2_Email_Not_Provided}
-                                name="Buyer_2_Email_Not_Provided"
-                                onChange={(val) => handleBuyerChange("Buyer_2_Email_Not_Provided", val)}
-                            >
-                                Email Not Provided
-                            </Checkbox>
+                            {/*<Checkbox*/}
+                            {/*    checked={buyer.Buyer_2_Email_Not_Provided}*/}
+                            {/*    name="Buyer_2_Email_Not_Provided"*/}
+                            {/*    onChange={(val) => handleBuyerChange("Buyer_2_Email_Not_Provided", val)}*/}
+                            {/*>*/}
+                            {/*    Email Not Provided*/}
+                            {/*</Checkbox>*/}
                             {!buyer.Buyer_2_Email_Not_Provided && (
                                 <Input
                                     value={buyer.Buyer_2_Email}
@@ -523,7 +684,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 <Heading>
                     <Icon name="home"/> Development Details
                 </Heading>
-                <Accordion title="Development Details" size="sm" defaultOpen={false}>
+                <Accordion title="Development Details" size="sm" defaultOpen={developmentShow}>
                     <Tile compact={true}>
                         <Select
                             label="Developer"
@@ -533,6 +694,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             options={[{label: '[UNKNOWN]', value: 'unknown'}, ...developers.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))]}
+                            value={development.Development_Developer}
                             onChange={(value) => setDevelopment({...development, Development_Developer: value})}
                         />
 
@@ -553,6 +715,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             options={[{label: '[UNKNOWN]', value: 'unknown'}, ...estates.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))]}
+                            value={development.Development_Estate}
                             onChange={(value) => setDevelopment({...development, Development_Estate: value})}
                         />
                         {development.Development_Estate === 'unknown' && (<Input
@@ -572,6 +735,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             options={[{label: '[UNKNOWN]', value: 'unknown'}, ...displayCentre.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))]}
+                            value={development.Development_Display_Centre}
                             onChange={(value) => setDevelopment({...development, Development_Display_Centre: value})}
                         />
                         {development.Development_Display_Centre === 'unknown' && (<Input
@@ -591,6 +755,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             options={[{label: '[UNKNOWN]', value: 'unknown'}, ...houseTypes.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))]}
+                            value={development.Development_House_Type}
                             onChange={(value) => setDevelopment({...development, Development_House_Type: value})}
                         />
                         {development.Development_House_Type === 'unknown' && (<Input
@@ -616,6 +781,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             options={facades.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))}
+                            value={development.Development_Facade}
                             onChange={(value) => setDevelopment({...development, Development_Facade: value})}
                         />
                         <Select
@@ -626,12 +792,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             options={regions.map(item => ({
                                 label: item.name, value: item.hs_object_id
                             }))}
+                            value={development.Development_Region}
                             onChange={(value) => handleDevelopmentRegionChange(value)}
                         />
                     </Tile>
                 </Accordion>
                 <Divider/>
-                <Accordion title="Development Address" size="sm" defaultOpen={false}>
+                <Accordion title="Development Address" size="sm" defaultOpen={developmentShow}>
 
                     <Tile compact={true}>
                         <Select
@@ -640,6 +807,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             required={true}
                             error={!isValid.Development_Address_Is_Land_Titled}
                             validationMessage={validationMessage.Development_Address_Is_Land_Titled}
+                            value={development.Development_Address_Is_Land_Titled}
                             onChange={(value) => {
                                 setDevelopment({
                                     ...development, Development_Address_Is_Land_Titled: value,
@@ -668,6 +836,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_Address_Is_KDRB_OR_Vacant"
                             placeholder=""
                             required={true}
+                            value={development.Development_Address_Is_KDRB_OR_Vacant}
                             error={!isValid.Development_Address_Is_KDRB_OR_Vacant}
                             validationMessage={validationMessage.Development_Address_Is_KDRB_OR_Vacant}
                             onChange={(value) => {
@@ -779,6 +948,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             value={development.Development_Address_Site_Start}
                             format="L"
                         />
+                        {/*<Text>{development.Development_Address_Site_Start}</Text>*/}
                         <DateInput
                             label="Land Settlement"
                             name="Development_Address_Site_Land_Settlement"
@@ -798,9 +968,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const depositDetails = (
         <Flex gap="sm" direction='column'>
             <Heading>
-                <Icon name="shoppingCart"/> Deposit Details
+                <Icon name="shoppingCart"/> {depositTitle}
             </Heading>
-            <Accordion title="Deposit Details" size="sm" defaultOpen={false}>
+            <Accordion title={depositTitle} size="sm" defaultOpen={depositShow}>
                 <Tile compact={true}>
                     <Select
                         label="Who's paying this deposit?"
@@ -816,6 +986,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         placeholder=""
                         required={true}
                         options={rangeOptions}
+                        value={deposit.Deposit_Range}
                         onChange={(value) => setDeposit({...deposit, Deposit_Range: value})}
                     />
                     <Select
@@ -823,6 +994,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         name="Deposit_Deposit_Source"
                         placeholder=""
                         options={depositSourceOptions}
+                        value={deposit.Deposit_Deposit_Source}
                         onChange={(value) => setDeposit({...deposit, Deposit_Deposit_Source: value})}
                     />
                     <Select
@@ -840,6 +1012,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         placeholder=""
                         required={true}
                         options={packageTypeOptions}
+                        value={deposit.Deposit_Package_Type}
                         onChange={(value) => setDeposit({...deposit, Deposit_Package_Type: value})}
                     />
                     <Select
@@ -848,6 +1021,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         placeholder=""
                         required={true}
                         options={contextOptions}
+                        value={deposit.Deposit_Context}
                         onChange={(value) => setDeposit({...deposit, Deposit_Context: value})}
                     />
                     <NumberInput
@@ -857,7 +1031,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         required={true}
                         min={1}
                         value={deposit.Deposit_Amount_Paid}
-                        onChange={(value) => handleDepositChange("Deposit_Amount_Paid", value)}
+                        onChange={(value) => handleNumberChange(value)}
                     />
                     <Input
                         label={"Amount Paid \"Print\""}
@@ -872,10 +1046,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         name="Deposit_Payment_Method"
                         placeholder=""
                         required={true}
+                        value={deposit.Deposit_Payment_Method}
                         options={paymentMethodOptions}
                         onChange={(value) => handleChangePaymentMethod(value)}
                     />
-                    {(deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card') && (
+                    {showTerminalNumber && (
                         <Input
                             label="Terminal Number"
                             name="Deposit_Payment_Terminal_Number"
@@ -892,6 +1067,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         options={[{label: '--None--', value: '--None--'}, ...promotionTypes.map(item => ({
                             label: item.name, value: item.hs_object_id
                         }))]}
+                        value={deposit.Deposit_Promotion_Type}
                         onChange={(value) => setDeposit({...deposit, Deposit_Promotion_Type: value})}
                     />
                     <DateInput
@@ -931,6 +1107,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         placeholder=""
                         required={true}
                         options={teams}
+                        value={system.System_Team}
                         onChange={(value) => setSystem({...system, System_Team: value})}
                     />
                     <Input
@@ -1150,14 +1327,51 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [validated, setValidated] = useState(false);
 
     function baseToUnix(baseDate) {
-        console.log(baseDate)
         const date = new Date(Date.UTC(baseDate.year, baseDate.month, baseDate.date));
-
         const unix = date.getTime(); // Convert milliseconds to seconds
-        console.log(unix)
-
         return unix;
 
+    }
+
+    function unixToString(unixDate, name = '') {
+        if(name){
+            console.log("++++++++++")
+            console.log(name)
+            console.log(unixDate)
+        }
+        if (!unixDate) {
+            return;
+        }
+        const date = new Date(parseFloat(unixDate));
+        const baseDate = {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth(),
+            date: date.getUTCDate()
+        };
+        if(name){
+            console.log(date)
+            console.log(baseDate)
+        }
+        const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month).padStart(2, '0')}/${baseDate.year}`;
+        if(name){
+            console.log(formattedDate)
+            console.log("++++++++++")
+        }
+        return formattedDate;
+    }
+
+    function unixToBase(unixDate) {
+        if (!unixDate) {
+            return '';
+        }
+        const date = new Date(parseFloat(unixDate));
+        const baseDate = {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth(),
+            date: date.getUTCDate()
+        };
+        const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
+        return {...baseDate,formattedDate: formattedDate}
     }
     const generateDeal = () => {
 
@@ -1210,9 +1424,16 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
     const readonlyBuyerDetails = (currentDeposit &&
         <Flex gap="sm" direction='column'>
-            <Heading>
-                <Icon name="contact"/> Buyer Information
-            </Heading>
+            <Flex gap="sm" direction='row' wrap='wrap' justify='between'>
+                <Heading>
+                    <Icon name="contact"/> Buyer Information
+                </Heading>
+                <Button
+                    variant="primary"
+                    size="xs"
+                    type="button"
+                >Edit</Button>
+            </Flex>
 
             <Accordion title={currentDeposit.add_second_buyer_details.value ? "Buyer 1 Details" : "Buyer Details"}
                        size="sm" defaultOpen={true}>
@@ -1330,7 +1551,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
                     <DescriptionList direction="column">
                         <DescriptionListItem label={'Is the Land Titled?'}>
-                            <Text>{currentDeposit.is_the_land_titled_?'Yes':'No' || '--'}</Text>
+                            <Text>{currentDeposit.is_the_land_titled_ ? 'Yes' : 'No' || '--'}</Text>
                         </DescriptionListItem>
                         <DescriptionListItem label={'Is this a KDRB or Vacant Lot?'}>
                             <Text>{currentDeposit.is_this_a_kdrb_or_vacant_lot_?.value || '--'}</Text>
@@ -1339,7 +1560,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             <Text>{currentDeposit.street_number || '--'}</Text>
                         </DescriptionListItem>
                         <DescriptionListItem label={'Expected Titles'}>
-                            <Text>{currentDeposit.expected_titles || '--'}</Text>
+                            <Text>{unixToString(currentDeposit.expected_titles) || '--'}</Text>
                         </DescriptionListItem>
                         <DescriptionListItem label={'Lot Number'}>
                             <Text>{currentDeposit.lot_number || '--'}</Text>
@@ -1355,10 +1576,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         </DescriptionListItem>
 
                         <DescriptionListItem label={'Site Start'}>
-                            <Text>{currentDeposit.site_start || '--'}</Text>
+                            <Text>{unixToString(currentDeposit.site_start) || '--'}</Text>
                         </DescriptionListItem>
                         <DescriptionListItem label={'Land Settlement'}>
-                            <Text>{currentDeposit.land_settlement || '--'}</Text>
+                            <Text>{unixToString(currentDeposit.land_settlement) || '--'}</Text>
                         </DescriptionListItem>
                     </DescriptionList>
                 </Tile>
@@ -1366,62 +1587,62 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         </Flex>
     )
 
-    const readonlyDepositDetails =  (currentDeposit &&
+    const readonlyDepositDetails = (currentDeposit &&
         <Flex gap="sm" direction='column'>
             <Heading>
-            <Icon name="shoppingCart"/> Deposit Details
-        </Heading>
+                <Icon name="shoppingCart"/> Deposit Details
+            </Heading>
             <Tile compact={true}>
-                    <DescriptionList direction="column">
-                        <DescriptionListItem label="Who's paying this deposit?">
-                            <Text>{currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Range">
-                            <Text>{currentDeposit.range?.value || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Deposit Source">
-                            <Text>{currentDeposit.deposit_source?.value || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Deposit Description">
-                            <Text>{currentDeposit.deposit_type || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Package Type">
-                            <Text>{currentDeposit.package_type?.value || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Context">
-                            <Text>{currentDeposit.context?.value || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Amount Paid">
-                            <Text>{currentDeposit.amount_paid || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label='Amount Paid Print'>
-                            <Text>{currentDeposit.amount_paid__print_ || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Payment Method">
-                            <Text>{currentDeposit.payment_method?.value || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Terminal Number">
-                            <Text>{currentDeposit.terminal_number || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Promotion Types">
-                            <Text>{currentDeposit.selected_promotion_type || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Sales Accept Forecast">
-                            <Text>{currentDeposit.sales_accept_forecast || '--'}</Text>
-                        </DescriptionListItem>
-                        <DescriptionListItem label="Comment">
-                            <Text>{currentDeposit.comment || '--'}</Text>
-                        </DescriptionListItem>
-                    </DescriptionList>
-                </Tile>
+                <DescriptionList direction="column">
+                    <DescriptionListItem label="Who's paying this deposit?">
+                        <Text>{currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Range">
+                        <Text>{currentDeposit.range?.value || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Deposit Source">
+                        <Text>{currentDeposit.deposit_source?.value || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Deposit Description">
+                        <Text>{currentDeposit.deposit_type || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Package Type">
+                        <Text>{currentDeposit.package_type?.value || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Context">
+                        <Text>{currentDeposit.context?.value || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Amount Paid">
+                        <Text>{currentDeposit.amount_paid || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label='Amount Paid Print'>
+                        <Text>{currentDeposit.amount_paid__print_ || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Payment Method">
+                        <Text>{currentDeposit.payment_method?.value || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Terminal Number">
+                        <Text>{currentDeposit.terminal_number || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Promotion Types">
+                        <Text>{currentDeposit.selected_promotion_type || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Sales Accept Forecast">
+                        <Text>{unixToString(currentDeposit.sales_accept_forecast) || '--'}</Text>
+                    </DescriptionListItem>
+                    <DescriptionListItem label="Comment">
+                        <Text>{currentDeposit.comment || '--'}</Text>
+                    </DescriptionListItem>
+                </DescriptionList>
+            </Tile>
         </Flex>
-   );
+    );
 
-    const readonlySystemDetails =  (currentDeposit &&
+    const readonlySystemDetails = (currentDeposit &&
         <Flex gap="sm" direction='column'>
             <Heading>
-            <Icon name="settings"/> System Details
-        </Heading>
+                <Icon name="settings"/> System Details
+            </Heading>
             <Tile compact={true}>
                 <DescriptionList direction="column">
                     <DescriptionListItem label="Team">
@@ -1430,8 +1651,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 </DescriptionList>
                 <DescriptionList direction="column">
                     <DescriptionListItem label="Simonds Representative">
-                        <Text>{currentDeposit.simonds_representative_manager__text_}</Text>
-                        {/*<Text>{currentDeposit.simonds_representative || '--'}</Text>*/}
+                        <Text>{currentDeposit.simonds_representative ?
+                            currentDeposit.simonds_representative?.firstname + ' ' + currentDeposit.simonds_representative?.lastname
+                            : (currentDeposit.simonds_representative_manager__text_ ?? '--')}</Text>
                     </DescriptionListItem>
                 </DescriptionList>
             </Tile>
@@ -1447,6 +1669,40 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             {readonlySystemDetails}
         </Flex>
     );
+    const handleChangeDDOptions = (value) => {
+        setDropdownDetailTitle(value);
+        if (value === 'Initial Fee') {
+            let deposit = dealDeposits.filter(item => item.deposit_type === 'Initial Fee');
+            if (deposit.length > 0) {
+                deposit = deposit[0];
+            }
+            setCurrentDeposit(deposit);
+        }
+        if (value === 'Preliminary Fee') {
+            setCurrentDeposit(null);
+            if (dealDeposits.length > 1) {
+                let deposit = dealDeposits.filter(item => item.deposit_type === 'Preliminary Fee');
+                if (deposit.length > 0) {
+                    deposit = deposit[0];
+                }
+                setCurrentDeposit(deposit);
+            }
+        }
+        setShowDepositInitialFee(true)
+    }
+
+    const ddOptions = [
+        {
+            label: 'Initial Fee',
+            onClick: () => handleChangeDDOptions('Initial Fee'),
+        },
+        {
+            label: 'Preliminary Fee',
+            onClick: () => handleChangeDDOptions('Preliminary Fee'),
+        },
+    ];
+    const [dropdownDetailTitle, setDropdownDetailTitle] = useState("Filter Deposit");
+    const [showDepositInitialFee, setShowDepositInitialFee] = useState(false);
 
     const initialDisplay = (
         <>
@@ -1470,53 +1726,62 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 <DescriptionListItem label={'Initial Fee Deposit'}>
                     {
                         showFirstButton ? (
-                            <Button
-                                onClick={() => {
-                                    setShowForm(true)
-                                    setShowFirstButton(false)
-                                }}
-                                variant="primary"
-                                size="sm"
-                                type="button"
-                            >
-                                Create Initial Fee Deposit
-                            </Button>
-                        ) :
-                        <Text>--</Text>
+                                <Button
+                                    onClick={() => {
+                                        setShowForm(true)
+                                        setShowFirstButton(false)
+                                    }}
+                                    variant="primary"
+                                    size="sm"
+                                    type="button"
+                                >
+                                    Create Initial Fee Deposit
+                                </Button>
+                            ) :
+                            <Text>{initialDepositFee}</Text>
                     }
-                        </DescriptionListItem>
+                </DescriptionListItem>
                 <DescriptionListItem label={'Preliminary Fee Deposit'}>
                     {
                         showSecondButton ? (
-                            <Button
-                                onClick={() => {
-                                    console.log('preliminary button clicked');
-                                }}
-                                variant="primary"
-                                size="sm"
-                                type="button"
-                            >
-                                Pay for Preliminary Deposit
-                            </Button>
-                        ) :
-                            <Text>--</Text>
+                                <Button
+                                    onClick={() => {
+                                        setShowForm(true)
+                                        setShowFirstButton(false)
+                                    }}
+                                    variant="primary"
+                                    size="sm"
+                                    type="button"
+                                >
+                                    Pay for Preliminary Deposit
+                                </Button>
+                            ) :
+                            <Text>{prelimDepositFee}</Text>
                     }
                 </DescriptionListItem>
                 <DescriptionListItem label={'Total Paid Amount'}>
-                    <Text>--</Text>
+                    <Text>{totalDepositFee}</Text>
                 </DescriptionListItem>
-                </DescriptionList>
-            <Flex gap="sm" direction='column'>
-                <Flex gap="sm" direction='row' wrap='wrap' justify='end'>
-
-
-
+            </DescriptionList>
+            {dealDeposits && dealDeposits.length > 0 &&
+                <Flex gap="sm" direction='column'>
+                    <Divider></Divider>
+                    <Flex gap="sm" direction='row' wrap='wrap' justify='between'>
+                        <Text format={{fontWeight: 'bold'}}>Deposit Details</Text>
+                        <Dropdown
+                            options={ddOptions}
+                            variant="transparent"
+                            buttonSize="md"
+                            buttonText={dropdownDetailTitle}
+                        />
+                        {showDepositInitialFee && depositMadeDisplay}
+                    </Flex>
                 </Flex>
-
-                {depositMadeDisplay}
-            </Flex>
+            }
         </>
     )
+
+
     return (
         <>
             {loading &&
@@ -1570,7 +1835,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                             variant="primary">Submit</Button>
                                     </Flex>
 
-                                    <Text>{validated}</Text>
                                     <Text>{JSON.stringify(submittedData)}</Text>
                                 </Flex>
                             </Form>

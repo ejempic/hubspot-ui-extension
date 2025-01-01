@@ -49,8 +49,21 @@ exports.main = async (context = {}) => {
     // }
 };
 
+async function getOwner(user){
+
+    const owners =  await hubspotClient.crm.owners.ownersApi.getPage(user.email);
+
+    if(owners){
+        return owners.results[0];
+    }
+    return null;
+}
+
 // Function to create a line item and associate with quote
 async function createDeposit({ buyer, development, deposit, system, user, currentBuyer, currentBuyerId }) {
+
+    const owner = await getOwner(user)
+    const ownerId = owner.id;
     const request = {
         properties: {
             name: buyer.Buyer_1_Given_Name+ " " + buyer.Buyer_1_Surname+ " - "+ deposit.Deposit_Deposit_Desc,
@@ -94,10 +107,9 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             is_the_land_titled_: development.Development_Address_Is_Land_Titled === 'Yes',
             is_this_a_kdrb_or_vacant_lot_: development.Development_Address_Is_KDRB_OR_Vacant,
             street_number: development.Development_Address_Street_Number,// REQUIRED AND SHOW IF Land Title is Yes
-            expected_titles: development.Development_Address_Expected_Titles,// REQUIRED AND SHOW IF Land Title is No
+            expected_titles: development.Development_Address_Expected_Titles_Text,// REQUIRED AND SHOW IF Land Title is No
             lot_number: development.Development_Address_Lot_No, // REQUIRED AND SHOW IF is KDRB or Vacant is Vacant Lot
             street_name: development.Development_Address_Street_Name,
-
             suburb: development.Development_Address_Suburb,
             state: development.Development_Address_State,
             postcode:development.Development_Address_Postcode,
@@ -121,13 +133,8 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
 
             // selected_team:system.System_Team,
             // simonds_representative_manager__text_: user.firstName+ ' '+user.lastName,
-            // simonds_representative: user.id
-            // simonds_representative: JSON.stringify({
-            //  'owner_id': user.id, TODO: Wrong internal name
-            //  'firstname': user.firstName,
-            //  'email': user.email,
-            //  'lastname': user.lastName,
-            // }),
+            simonds_representative: parseInt(ownerId),
+            // simonds_representative: JSON.stringify({owner_id: parseInt(ownerId),firstname: user.firstName,email: user.email,lastname: user.lastName}),
         },
         associations: [
             {
@@ -143,6 +150,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             },
         ],
     };
+    // return request;
 
     const createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35849675', request);
 

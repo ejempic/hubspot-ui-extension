@@ -48,8 +48,8 @@ export const contextOptions = [
     {label: 'VIC KDRB', value: 'VIC KDRB'},
 ];
 export const paymentMethodOptions = [
-    {label: 'Cheque', value: 'Cheque'},
-    {label: 'Cash', value: 'Cash'},
+    // {label: 'Cheque', value: 'Cheque'},
+    // {label: 'Cash', value: 'Cash'},
     {label: 'Credit Card', value: 'Credit Card'},
     {label: 'Direct Credit', value: 'Direct Credit'},
     {label: 'Debit Card', value: 'Debit Card'},
