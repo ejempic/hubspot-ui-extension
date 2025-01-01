@@ -25,7 +25,13 @@ import {
     Modal,
     ModalBody,
     ModalFooter,
-    LoadingSpinner, ButtonRow
+    LoadingSpinner,
+    Table,
+    TableHead,
+    TableRow,
+    TableHeader,
+    TableBody,
+    TableCell,
 } from "@hubspot/ui-extensions";
 import {
     yesNoOptions,
@@ -97,7 +103,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [showForm, setShowForm] = useState(false);
     const [showFirstButton, setShowFirstButton] = useState(false);
     const [showSecondButton, setShowSecondButton] = useState(false);
-    const [showTerminalNumber, setShowTerminalNumber] = useState(false);
+    const [showTerminalNumber, setShowTerminalNumber] = useState(false);//removed
 
     const [currentBuyer, setCurrentBuyer] = useState({
         contact_email: "",
@@ -107,8 +113,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     });
     const [dealDeposits, setDealDeposits] = useState(null);
     const [currentDeposit, setCurrentDeposit] = useState(null);
-    const [initialDepositFee, setInitialDepositFee] = useState('--');
-    const [prelimDepositFee, setPrelimDepositFee] = useState('--');
+    const [initialDepositFee, setInitialDepositFee] = useState(null);
+    const [prelimDepositFee, setPrelimDepositFee] = useState(null);
     const [totalDepositFee, setTotalDepositFee] = useState('--');
     const handleNumberChange = (value) => {
         handleDepositChange("Deposit_Amount_Paid", value)
@@ -161,7 +167,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         fetchProperties(["hs_object_id"]).then((properties) => {
             setCurrentBuyerId(properties.hs_object_id);
         });
-
     }, [fetchProperties]);
     useEffect(() => {
         runServerless({name: "fetchBuyerDetails", parameters: {hs_object_id: currentBuyerId}}).then((resp) => {
@@ -175,6 +180,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 if (depositItems.length === 0) {
                     setShowFirstButton(true)
                     setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[0].value})
+                    // setDepositTitle("Deposit Details for Initial Fee")
                 } else {
                     setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[1].value})
                     let initialDeposit = depositItems.filter(item => item.deposit_type === 'Initial Fee');
@@ -187,8 +193,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             style: 'currency',
                             currency: 'USD'
                         }).format(initialDeposit.amount_paid);
-                        setInitialDepositFee(amountPaid);
-                        setDepositTitle("Deposit Details for Preliminary Fee")
+                        setInitialDepositFee(initialDeposit);
+                        // setDepositTitle("Deposit Details for Preliminary Fee")
                     }
                     setCurrentDeposit(initialDeposit);
 
@@ -201,7 +207,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             style: 'currency',
                             currency: 'USD'
                         }).format(prelimDeposit.amount_paid);
-                        setPrelimDepositFee(amountPaid);
+                        setPrelimDepositFee(prelimDeposit);
                     }
 
                     setShowTerminalNumber(checkIfPaymentMethodIsCard(initialDeposit.payment_method?.value) )
@@ -279,7 +285,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             handleDepositChange('Deposit_Who_Paying_Deposit', filterValuePerLabel(whoisPayingOptionsFinal, currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value, 'value','value'));
             handleDepositChange('Deposit_Range', filterValuePerLabel(rangeOptions, currentDeposit.range?.value, 'value', 'value'));
             handleDepositChange('Deposit_Deposit_Source', filterValuePerLabel(depositSourceOptions, currentDeposit.deposit_source?.value, 'value', 'value'));
-            handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[1].value);
+
             handleDepositChange('Deposit_Package_Type', filterValuePerLabel(packageTypeOptions, currentDeposit.package_type?.value,'value', 'value'));
             handleDepositChange('Deposit_Context', filterValuePerLabel(contextOptions, currentDeposit.context?.value,'value', 'value'));
             handleDepositChange('Deposit_Amount_Paid', currentDeposit.amount_paid);
@@ -482,6 +488,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             setDeposit({...deposit, Deposit_Payment_Terminal_Number: 'Bpoint'})
             setShowTerminalNumber(true)
         }else{
+            setDeposit({...deposit, Deposit_Payment_Terminal_Number: ''})
             setShowTerminalNumber(false)
         }
     }
@@ -499,7 +506,18 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const buyerDetails = (
         <Flex gap="sm" direction='column'>
             <Heading>
-                <Icon name="contact"/> Buyer Information
+                <Flex justify={'between'}>
+                    <Text><Icon name="contact"/> Buyer Information</Text>
+                    <Button
+                        onClick={() => {
+                            setShowForm(false)
+                        }}
+                        size="xs"
+                        type="button"
+                        >
+                            Cancel
+                    </Button>
+                </Flex>
             </Heading>
 
             <Accordion title={hasBuyer2 ? "Buyer 1 Details" : "Buyer Details"} size="sm" defaultOpen={true}>
@@ -989,23 +1007,23 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         value={deposit.Deposit_Range}
                         onChange={(value) => setDeposit({...deposit, Deposit_Range: value})}
                     />
-                    <Select
-                        label="Deposit Source"
-                        name="Deposit_Deposit_Source"
-                        placeholder=""
-                        options={depositSourceOptions}
-                        value={deposit.Deposit_Deposit_Source}
-                        onChange={(value) => setDeposit({...deposit, Deposit_Deposit_Source: value})}
-                    />
-                    <Select
-                        label="Deposit Description"
-                        name="Deposit_Deposit_Desc"
-                        readOnly
-                        required={true}
-                        value={deposit.Deposit_Deposit_Desc}
-                        options={depositDescriptionOptions}
-                        onChange={(value) => setDeposit({...deposit, Deposit_Deposit_Desc: value})}
-                    />
+                    {/*<Select*/}
+                    {/*    label="Deposit Source"*/}
+                    {/*    name="Deposit_Deposit_Source"*/}
+                    {/*    placeholder=""*/}
+                    {/*    options={depositSourceOptions}*/}
+                    {/*    value={deposit.Deposit_Deposit_Source}*/}
+                    {/*    onChange={(value) => setDeposit({...deposit, Deposit_Deposit_Source: value})}*/}
+                    {/*/>*/}
+                    {/*<Select*/}
+                    {/*    label="Deposit Description"*/}
+                    {/*    name="Deposit_Deposit_Desc"*/}
+                    {/*    readOnly*/}
+                    {/*    required={true}*/}
+                    {/*    value={deposit.Deposit_Deposit_Desc}*/}
+                    {/*    options={depositDescriptionOptions}*/}
+                    {/*    onChange={(value) => setDeposit({...deposit, Deposit_Deposit_Desc: value})}*/}
+                    {/*/>*/}
                     <Select
                         label="Package Type"
                         name="Deposit_Package_Type"
@@ -1050,15 +1068,15 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         options={paymentMethodOptions}
                         onChange={(value) => handleChangePaymentMethod(value)}
                     />
-                    {showTerminalNumber && (
-                        <Input
-                            label="Terminal Number"
-                            name="Deposit_Payment_Terminal_Number"
-                            placeholder="Bpoint"
-                            required={true}
-                            value={deposit.Deposit_Payment_Terminal_Number}
-                            onChange={(value) => setDeposit({...deposit, Deposit_Payment_Terminal_Number: value})}
-                        />)}
+                    {/*{showTerminalNumber && (*/}
+                    {/*    <Input*/}
+                    {/*        label="Terminal Number"*/}
+                    {/*        name="Deposit_Payment_Terminal_Number"*/}
+                    {/*        placeholder="Bpoint"*/}
+                    {/*        required={true}*/}
+                    {/*        value={deposit.Deposit_Payment_Terminal_Number}*/}
+                    {/*        onChange={(value) => setDeposit({...deposit, Deposit_Payment_Terminal_Number: value})}*/}
+                    {/*    />)}*/}
                     <Select
                         label="Promotion Types"
                         name="Deposit_Promotion_Type"
@@ -1435,7 +1453,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 >Edit</Button>
             </Flex>
 
-            <Accordion title={currentDeposit.add_second_buyer_details.value ? "Buyer 1 Details" : "Buyer Details"}
+            <Accordion title={currentDeposit.add_second_buyer_details?.value ? "Buyer 1 Details" : "Buyer Details"}
                        size="sm" defaultOpen={true}>
                 <Tile compact={true}>
                     <DescriptionList direction="column">
@@ -1704,80 +1722,150 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [dropdownDetailTitle, setDropdownDetailTitle] = useState("Filter Deposit");
     const [showDepositInitialFee, setShowDepositInitialFee] = useState(false);
 
+
+    const editInitialFee = () =>{
+        setDepositTitle("Deposit Details for Initial Fee")
+        if(initialDepositFee) {
+            setCurrentDeposit(initialDepositFee);
+        }
+        handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[0].value);
+        setShowForm(true)
+    }
+    const editPrelimFee = () =>{
+        setDepositTitle("Deposit Details for Preliminary Fee")
+        if(prelimDepositFee){
+            setCurrentDeposit(prelimDepositFee);
+        }else{
+            setCurrentDeposit(initialDepositFee);
+
+            handleDepositChange('Deposit_Amount_Paid', '');
+            handleDepositChange('Deposit_Amount_Paid_Print', '');
+        }
+        handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[1].value);
+        setShowForm(true)
+    }
+
+
     const initialDisplay = (
         <>
-            <DescriptionList direction="row">
-                <DescriptionListItem label={'First Name'}>
-                    <Text>{buyer.Buyer_1_Given_Name}</Text>
-                </DescriptionListItem>
-                <DescriptionListItem label={'Last Name'}>
-                    <Text>{buyer.Buyer_1_Surname}</Text>
-                </DescriptionListItem>
-            </DescriptionList>
-            <DescriptionList direction="row">
-                <DescriptionListItem label={'Email'}>
-                    <Text>{buyer.Buyer_1_Email || '--'}</Text>
-                </DescriptionListItem>
-                <DescriptionListItem label={'Phone'}>
-                    <Text>{buyer.Buyer_1_Mobile || '--'}</Text>
-                </DescriptionListItem>
-            </DescriptionList>
-            <DescriptionList direction="row">
-                <DescriptionListItem label={'Initial Fee Deposit'}>
-                    {
-                        showFirstButton ? (
-                                <Button
-                                    onClick={() => {
-                                        setShowForm(true)
-                                        setShowFirstButton(false)
-                                    }}
-                                    variant="primary"
-                                    size="sm"
-                                    type="button"
-                                >
-                                    Create Initial Fee Deposit
-                                </Button>
-                            ) :
-                            <Text>{initialDepositFee}</Text>
-                    }
-                </DescriptionListItem>
-                <DescriptionListItem label={'Preliminary Fee Deposit'}>
-                    {
-                        showSecondButton ? (
-                                <Button
-                                    onClick={() => {
-                                        setShowForm(true)
-                                        setShowFirstButton(false)
-                                    }}
-                                    variant="primary"
-                                    size="sm"
-                                    type="button"
-                                >
-                                    Pay for Preliminary Deposit
-                                </Button>
-                            ) :
-                            <Text>{prelimDepositFee}</Text>
-                    }
-                </DescriptionListItem>
-                <DescriptionListItem label={'Total Paid Amount'}>
-                    <Text>{totalDepositFee}</Text>
-                </DescriptionListItem>
-            </DescriptionList>
-            {dealDeposits && dealDeposits.length > 0 &&
-                <Flex gap="sm" direction='column'>
-                    <Divider></Divider>
-                    <Flex gap="sm" direction='row' wrap='wrap' justify='between'>
-                        <Text format={{fontWeight: 'bold'}}>Deposit Details</Text>
-                        <Dropdown
-                            options={ddOptions}
-                            variant="transparent"
-                            buttonSize="md"
-                            buttonText={dropdownDetailTitle}
-                        />
-                        {showDepositInitialFee && depositMadeDisplay}
-                    </Flex>
-                </Flex>
-            }
+            <Table bordered={true}>
+                <TableHead>
+                    <TableRow>
+                        <TableHeader width="min">Deposit Type</TableHeader>
+                        <TableHeader width="min">Amount</TableHeader>
+                        <TableHeader width="min">Payment Type</TableHeader>
+                        <TableHeader width="min">Status</TableHeader>
+                        <TableHeader width="min">Action</TableHeader>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+
+                    <TableRow>
+                        <TableCell width="min">Initial Fee</TableCell>
+                        <TableCell width="min">{initialDepositFee?.amount_paid??'--'}</TableCell>
+                        <TableCell width="min">{initialDepositFee?.payment_method?.value??'--'}</TableCell>
+                        <TableCell width="min"></TableCell>
+                        <TableCell width="min">
+                            <Button
+                                onClick={editInitialFee}
+                                variant="primary"
+                                size="sm"
+                                type="button"
+                            >
+                                Edit
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell width="min">Preliminary Fee</TableCell>
+                        <TableCell width="min">{prelimDepositFee?.amount_paid??'--'}</TableCell>
+                        <TableCell width="min">{prelimDepositFee?.payment_method?.value??'--'}</TableCell>
+                        <TableCell width="min"></TableCell>
+                        <TableCell width="min">
+                            <Button
+                                onClick={editPrelimFee}
+                                variant="primary"
+                                size="sm"
+                                type="button"
+                            >
+                                Edit
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+            {/*<DescriptionList direction="row">*/}
+            {/*    <DescriptionListItem label={'First Name'}>*/}
+            {/*        <Text>{buyer.Buyer_1_Given_Name}</Text>*/}
+            {/*    </DescriptionListItem>*/}
+            {/*    <DescriptionListItem label={'Last Name'}>*/}
+            {/*        <Text>{buyer.Buyer_1_Surname}</Text>*/}
+            {/*    </DescriptionListItem>*/}
+            {/*</DescriptionList>*/}
+            {/*<DescriptionList direction="row">*/}
+            {/*    <DescriptionListItem label={'Email'}>*/}
+            {/*        <Text>{buyer.Buyer_1_Email || '--'}</Text>*/}
+            {/*    </DescriptionListItem>*/}
+            {/*    <DescriptionListItem label={'Phone'}>*/}
+            {/*        <Text>{buyer.Buyer_1_Mobile || '--'}</Text>*/}
+            {/*    </DescriptionListItem>*/}
+            {/*</DescriptionList>*/}
+            {/*<DescriptionList direction="row">*/}
+            {/*    <DescriptionListItem label={'Initial Fee Deposit'}>*/}
+            {/*        {*/}
+            {/*            showFirstButton ? (*/}
+            {/*                    <Button*/}
+            {/*                        onClick={() => {*/}
+            {/*                            setShowForm(true)*/}
+            {/*                            setShowFirstButton(false)*/}
+            {/*                        }}*/}
+            {/*                        variant="primary"*/}
+            {/*                        size="sm"*/}
+            {/*                        type="button"*/}
+            {/*                    >*/}
+            {/*                        Create Initial Fee Deposit*/}
+            {/*                    </Button>*/}
+            {/*                ) :*/}
+            {/*                <Text>{initialDepositFee.amount_paid}</Text>*/}
+            {/*        }*/}
+            {/*    </DescriptionListItem>*/}
+            {/*    <DescriptionListItem label={'Preliminary Fee Deposit'}>*/}
+            {/*        {*/}
+            {/*            showSecondButton ? (*/}
+            {/*                    <Button*/}
+            {/*                        onClick={() => {*/}
+            {/*                            setShowForm(true)*/}
+            {/*                            setShowFirstButton(false)*/}
+            {/*                        }}*/}
+            {/*                        variant="primary"*/}
+            {/*                        size="sm"*/}
+            {/*                        type="button"*/}
+            {/*                    >*/}
+            {/*                        Pay for Preliminary Deposit*/}
+            {/*                    </Button>*/}
+            {/*                ) :*/}
+            {/*                <Text>{prelimDepositFee.amount_paid}</Text>*/}
+            {/*        }*/}
+            {/*    </DescriptionListItem>*/}
+            {/*    <DescriptionListItem label={'Total Paid Amount'}>*/}
+            {/*        <Text>{totalDepositFee}</Text>*/}
+            {/*    </DescriptionListItem>*/}
+            {/*</DescriptionList>*/}
+            {/*{dealDeposits && dealDeposits.length > 0 &&*/}
+            {/*    <Flex gap="sm" direction='column'>*/}
+            {/*        <Divider></Divider>*/}
+            {/*        <Flex gap="sm" direction='row' wrap='wrap' justify='between'>*/}
+            {/*            <Text format={{fontWeight: 'bold'}}>Deposit Details</Text>*/}
+            {/*            <Dropdown*/}
+            {/*                options={ddOptions}*/}
+            {/*                variant="transparent"*/}
+            {/*                buttonSize="md"*/}
+            {/*                buttonText={dropdownDetailTitle}*/}
+            {/*            />*/}
+            {/*            {showDepositInitialFee && depositMadeDisplay}*/}
+            {/*        </Flex>*/}
+            {/*    </Flex>*/}
+            {/*}*/}
         </>
     )
 
@@ -1801,6 +1889,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                     {systemDetails}
                                     <Flex direction={'row'} justify={'end'} wrap={'wrap'} gap={'small'}>
                                         {submitLoading && <LoadingSpinner size='xs'></LoadingSpinner>}
+                                        <Button
+                                            onClick={() => {
+                                                setShowForm(false)
+                                            }}
+                                            type="button"
+                                        >
+                                            Cancel
+                                        </Button>
                                         <Button
                                             overlay={
                                                 (!submitted ? null : validated ? null :

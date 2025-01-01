@@ -119,14 +119,14 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
 
             is_the_deposit_from_buyer_1_or_buyer_2_:deposit.Deposit_Who_Paying_Deposit,
             range:deposit.Deposit_Range,
-            deposit_source:deposit.Deposit_Deposit_Source,
+            // deposit_source:deposit.Deposit_Deposit_Source,
             deposit_type: deposit.Deposit_Deposit_Desc,
             package_type:deposit.Deposit_Package_Type,
             context:deposit.Deposit_Context,
             amount_paid:deposit.Deposit_Amount_Paid,
             amount_paid__print_:deposit.Deposit_Amount_Paid_Print,
             payment_method:deposit.Deposit_Payment_Method,
-            terminal_number: deposit.Deposit_Payment_Terminal_Number, //REQURIE AND SHOW IF Deposit_Payment_Method  debit card/creditCard Value is Bpoint
+            terminal_number: deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card' ?'Bpoint':'', //REQURIE AND SHOW IF Deposit_Payment_Method  debit card/creditCard Value is Bpoint
             // selected_promotion_type: deposit.Deposit_Promotion_Type,
             sales_accept_forecast: (deposit.Deposit_Sales_Accept_Forecast_Text), // Date
             comment:deposit.Deposit_Comment,
