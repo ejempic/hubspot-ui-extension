@@ -151,9 +151,13 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             },
         ],
     };
+    let createdDeposit
     // return request;
-
-    const createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35849675', request);
+    if(deposit.Deposit_Object_Id){
+        createdDeposit =  await hubspotClient.crm.objects.basicApi.update('2-35849675', deposit.Deposit_Object_Id, request);
+    }else{
+        createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35849675', request);
+    }
 
     await createAssociates({createdDeposit, buyer, development, deposit, system, user, currentBuyer, currentBuyerId });
 

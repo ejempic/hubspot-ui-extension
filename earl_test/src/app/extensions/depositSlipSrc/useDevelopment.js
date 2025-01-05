@@ -33,9 +33,6 @@ const useDevelopment = () => {
     });
 
     const handleDevelopmentChange = (field, val) => {
-        if(field == 'Development_Address_Site_Start' || field == 'Development_Address_Site_Start_Text'){
-            console.log(val)
-        }
         setDevelopment(prevDevelopment => ({
             ...prevDevelopment,
             [field]: val,
