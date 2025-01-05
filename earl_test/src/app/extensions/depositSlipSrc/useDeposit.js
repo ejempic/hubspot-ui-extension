@@ -8,6 +8,7 @@ const useDeposit = () => {
         Deposit_Deposit_Desc: '',
         Deposit_Package_Type: '',
         Deposit_Context: '',
+        Sale_Type: '',
         Deposit_Amount_Paid: '',
         Deposit_Amount_Paid_Print: '',
         Deposit_Payment_Method: '',

@@ -12,6 +12,10 @@
       "file": "fetch-dropdown-options.js",
       "secrets": []
     },
+    "fetchPropertiesOption": {
+      "file": "fetch-deposit-properties.js",
+      "secrets": []
+    },
     "fetchBuyerDetails": {
       "file": "fetch-buyer-details.js",
       "secrets": []

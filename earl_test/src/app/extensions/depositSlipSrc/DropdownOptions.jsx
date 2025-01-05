@@ -47,6 +47,14 @@ export const contextOptions = [
     {label: 'Gallery', value: 'Gallery'},
     {label: 'VIC KDRB', value: 'VIC KDRB'},
 ];
+export const saleTypeOptions = [
+    {label: 'Order', value: '-2'},
+    {label: 'Spec', value: '4'},
+    {label: 'Insurance', value: '31'},
+    {label: 'Dual Occ', value: '34'},
+    {label: 'Masterpiece Standalone', value: '36'},
+    {label: 'Medium Density', value: '37'},
+];
 export const paymentMethodOptions = [
     // {label: 'Cheque', value: 'Cheque'},
     // {label: 'Cash', value: 'Cash'},
@@ -55,3 +63,38 @@ export const paymentMethodOptions = [
     {label: 'Debit Card', value: 'Debit Card'},
 ];
 export var whoisPayingOptions = [{label: 'Buyer 1', value: 'Buyer 1'}, {label: 'Buyer 2', value: 'Buyer 2'}];
+export const dropdownValueIsUnknown = (value) => {
+    if(typeof value === 'string'){
+        return value.toLowerCase().includes("unknown")
+    }
+    return false;
+}
+export const generateDropdownOptions = (options, addUnknown = false, label = 'name' , value = 'hs_object_id') => {
+    let mapOptions = options.map(item => ({
+        label: item[label], value: item[value]
+    }));
+
+    if (addUnknown) {
+        // Check if '[UNKNOWN]' option is already present
+        const unknownOption = mapOptions.find(option => option.label === '[UNKNOWN]');
+
+        if (!unknownOption) {
+            mapOptions = [{label: '[Unknown]', value: 'unknown'}, ...mapOptions];
+        }
+    }
+
+    return mapOptions;
+}
+export const generateOptionFromProperties= (result, properties) => {
+    let property = result.find(item=> item.name === properties)
+    if(property){
+        let propertyOptions_ = property.options;
+        if(propertyOptions_.length > 0){
+            propertyOptions_ = propertyOptions_.sort((a, b) => a.displayOrder - b.displayOrder);
+            propertyOptions_ = propertyOptions_.filter(item => !item.hidden);
+            propertyOptions_ = generateDropdownOptions(propertyOptions_, false, 'label','value')
+            return  propertyOptions_;
+        }
+    }
+    return null;
+}

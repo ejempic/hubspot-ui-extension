@@ -102,7 +102,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             house_type_description: development.Development_House_Type_Desc,
             size: development.Development_Size,
             // selected_facade: development.Development_Facade,
-            // selected_region: development.Development_Region,
+            region: development.Development_Region,
 
             is_the_land_titled_: development.Development_Address_Is_Land_Titled === 'Yes',
             is_this_a_kdrb_or_vacant_lot_: development.Development_Address_Is_KDRB_OR_Vacant,
@@ -123,6 +123,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             deposit_type: deposit.Deposit_Deposit_Desc,
             package_type:deposit.Deposit_Package_Type,
             context:deposit.Deposit_Context,
+            sale_type:deposit.Sale_Type,
             amount_paid:deposit.Deposit_Amount_Paid,
             amount_paid__print_:deposit.Deposit_Amount_Paid_Print,
             payment_method:deposit.Deposit_Payment_Method,
@@ -164,13 +165,13 @@ async function createAssociates({createdDeposit, buyer, development, deposit, sy
     const depositId = createdDeposit.id
     const depositType = '2-35849675'
     const associatesTypes = [
-        {name:'deposit_to_developers', typeId: '2-35849673', value: development.Development_Developer},
-        {name:'deposit_to_display_centre', typeId: '2-35849679', value: development.Development_Display_Centre},
-        {name:'deposit_to_estates', typeId: '2-35849678', value: development.Development_Estate},
-        {name:'deposit_to_facades', typeId: '2-35849680', value: development.Development_Facade},
-        {name:'deposit_to_house_types', typeId: '2-35849682', value: development.Development_House_Type},
-        {name:'deposit_to_promotion_types', typeId: '2-35849677', value: deposit.Deposit_Promotion_Type},
-        {name:'deposit_to_regions', typeId: '2-35849671', value: development.Development_Region},
+        {name:'deposit_to_developers', typeId: '2-35849673', value: development.Development_Developer === 'unknown'?null:development.Development_Developer},
+        {name:'deposit_to_display_centre', typeId: '2-35849679', value: development.Development_Display_Centre === 'unknown'?null:development.Development_Display_Centre},
+        {name:'deposit_to_estates', typeId: '2-35849678', value: development.Development_Estate === 'unknown'?null:development.Development_Estate},
+        {name:'deposit_to_facades', typeId: '2-35849680', value: development.Development_Facade === 'unknown'?null:development.Development_Facade},
+        {name:'deposit_to_house_types', typeId: '2-35849682', value: development.Development_House_Type === 'unknown'?null:development.Development_House_Type},
+        {name:'deposit_to_promotion_types', typeId: '2-35849677', value: deposit.Deposit_Promotion_Type === 'unknown'?null:deposit.Deposit_Promotion_Type},
+        // {name:'deposit_to_regions', typeId: '2-35849671', value: development.Development_Region},
         {name:'deposit_to_teams', typeId: '2-35849672', value: system.System_Team},
     ];
     associatesTypes.map(async (associatesType) => {

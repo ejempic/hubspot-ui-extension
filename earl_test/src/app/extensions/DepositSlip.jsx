@@ -4,6 +4,7 @@ import axios from "axios";
 import {
     Divider,
     Link,
+    LoadingButton,
     Button,
     Text,
     Dropdown,
@@ -36,14 +37,15 @@ import {
 import {
     yesNoOptions,
     KDRBOptions,
-    regionOptions,
     rangeOptions,
     depositSourceOptions,
     depositDescriptionOptions,
     packageTypeOptions,
     contextOptions,
     whoisPayingOptions,
-    paymentMethodOptions
+    paymentMethodOptions,
+    dropdownValueIsUnknown,
+    generateDropdownOptions, generateOptionFromProperties
 } from './depositSlipSrc/DropdownOptions';
 
 import useBuyer from './depositSlipSrc/useBuyer';
@@ -90,6 +92,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [facades, setFacades] = useState([]);
     const [houseTypes, setHouseTypes] = useState([]);
     const [promotionTypes, setPromotionTypes] = useState([]);
+    const [initialTeam, setInitialTeam] = useState([]);
     const [teams, setTeams] = useState([]);
     const [regions, setRegions] = useState([]);
     const [optionsLoaded, setOptionsLoaded] = useState(false);
@@ -116,6 +119,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     const [initialDepositFee, setInitialDepositFee] = useState(null);
     const [prelimDepositFee, setPrelimDepositFee] = useState(null);
     const [totalDepositFee, setTotalDepositFee] = useState('--');
+    const [whoisPayingOptionsFinal, setWhoisPayingOptionsFinal] = useState(whoisPayingOptions)
+    const [saleTypeOptions, setSaleTypeOptions] = useState(null);
     const handleNumberChange = (value) => {
         handleDepositChange("Deposit_Amount_Paid", value)
         handleDepositChange("Deposit_Amount_Paid_Print", capitalizeWords(toWords(value)))
@@ -125,12 +130,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         return str.replace(/\b\w/g, char => char.toUpperCase());
     }
 
-    // useEffect(() => {
-    //     console.log(currentBuyer)
-    // }, [currentBuyer]);
-    // useEffect(() => {
-    //     console.log(dealDeposits)
-    // }, [dealDeposits]);
     useEffect(() => {
         runServerless({name: "fetchDropdownOptions"}).then((resp) => {
             if (resp.status === "SUCCESS") {
@@ -140,20 +139,35 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 setFacades(resp.response.data.CRM?.p_facades_collection?.items || []);
                 setHouseTypes(resp.response.data.CRM?.p_house_types_collection?.items || []);
                 setPromotionTypes(resp.response.data.CRM?.p_promotion_types_collection?.items || []);
-                setRegions(resp.response.data.CRM?.p_regions_collection?.items || []);
+                // setRegions(resp.response.data.CRM?.p_regions_collection?.items || []);
 
                 const initialTeamOption = resp.response.data.CRM?.p_teams_collection?.items;
 
-                setTeams([{label: '--None--', value: '--None--'}, ...initialTeamOption.map(item => ({
+                const team = [{label: '--None--', value: '--None--'}, ...initialTeamOption.map(item => ({
                     label: item.name, value: item.hs_object_id
-                }))] || []);
-                setOptionsLoaded(true);
+                }))] || [];
+                setInitialTeam(team);
+                setTeams(team);
+                let dropdownLoaded = true;
+
             }
-            // setDeposit({...deposit, Deposit_Who_Paying_Deposit: 'Buyer 1'})
+        }).then(()=>{
+            runServerless({name: "fetchPropertiesOption"}).then((resp) => {
+                if (resp.status === "SUCCESS") {
+                    const result = resp.response.results;
+                    if(result){
+                        const sale_type = generateOptionFromProperties(result, 'sale_type');
+                        setSaleTypeOptions(sale_type)
+                        const region = generateOptionFromProperties(result, 'region');
+                        setRegions(region)
+                    }
+                    setOptionsLoaded(true);
+                }
+            });
         });
+
     }, []);
 
-    const [whoisPayingOptionsFinal, setWhoisPayingOptionsFinal] = useState(whoisPayingOptions);
     useEffect(() => {
         if (hasBuyer2) {
             setWhoisPayingOptionsFinal(whoisPayingOptions)
@@ -167,6 +181,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         fetchProperties(["hs_object_id"]).then((properties) => {
             setCurrentBuyerId(properties.hs_object_id);
         });
+        fetchProperties('*').then((properties) => console.log(properties));
     }, [fetchProperties]);
     useEffect(() => {
         runServerless({name: "fetchBuyerDetails", parameters: {hs_object_id: currentBuyerId}}).then((resp) => {
@@ -184,44 +199,48 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 } else {
                     setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[1].value})
                     let initialDeposit = depositItems.filter(item => item.deposit_type === 'Initial Fee');
-                    let totalAmount = 0;
+                    let prelimDeposit = depositItems.filter(item => item.deposit_type === 'Preliminary Fee');
+                    // let totalAmount = 0;
                     if (initialDeposit.length > 0) {
                         initialDeposit = initialDeposit[0];
                         setShowSecondButton(true)
-                        totalAmount+=parseFloat(initialDeposit.amount_paid);
-                        const amountPaid = new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD'
-                        }).format(initialDeposit.amount_paid);
+                        // totalAmount+=parseFloat(initialDeposit.amount_paid);
+                        // const amountPaid = new Intl.NumberFormat('en-US', {
+                        //     style: 'currency',
+                        //     currency: 'USD'
+                        // }).format(initialDeposit.amount_paid);
                         setInitialDepositFee(initialDeposit);
+                        setCurrentDeposit(initialDeposit);
                         // setDepositTitle("Deposit Details for Preliminary Fee")
-                    }
-                    setCurrentDeposit(initialDeposit);
-
-                    let prelimDeposit = depositItems.filter(item => item.deposit_type === 'Preliminary Fee');
-                    if (prelimDeposit.length > 0) {
+                    }else if (prelimDeposit.length > 0) {
                         prelimDeposit = prelimDeposit[0];
                         setShowSecondButton(false)
-                        totalAmount+=parseFloat(prelimDeposit.amount_paid);
-                        const amountPaid = new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD'
-                        }).format(prelimDeposit.amount_paid);
+                        // totalAmount+=parseFloat(prelimDeposit.amount_paid);
+                        // const amountPaid = new Intl.NumberFormat('en-US', {
+                        //     style: 'currency',
+                        //     currency: 'USD'
+                        // }).format(prelimDeposit.amount_paid);
                         setPrelimDepositFee(prelimDeposit);
+                        setCurrentDeposit(prelimDeposit);
+                    }else{
+                        // setCurrentBuyer(resp.response.data.CRM.deal);
+                        // given_name
+                        // buyer_1_surname
+                        // buyer_1_email
+                        // buyer_1_mobile
                     }
 
                     setShowTerminalNumber(checkIfPaymentMethodIsCard(initialDeposit.payment_method?.value) )
-                    const amountPaid = new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: 'USD'
-                    }).format(totalAmount);
-                    setTotalDepositFee(amountPaid)
+                    // const amountPaid = new Intl.NumberFormat('en-US', {
+                    //     style: 'currency',
+                    //     currency: 'USD'
+                    // }).format(totalAmount);
+                    // setTotalDepositFee(amountPaid)
                 }
             }
             setLoading(false);
         });
     }, [currentBuyerId]);
-
     useEffect(() => {
         if (currentDeposit && optionsLoaded) {
             console.log("========================")
@@ -238,8 +257,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             handleBuyerChange('Buyer_1_Mobile', currentDeposit.buyer_1_mobile);
             handleBuyerChange('Buyer_1_Business_Number', currentDeposit.buyer_1_business_number);
             handleBuyerChange('Buyer_1_After_Hours', currentDeposit.buyer_1_after_hours_number);
-            setHasBuyer2(currentDeposit.add_second_buyer_details)
-            handleBuyerChange('Buyer_Add_Second_Buyer', currentDeposit.add_second_buyer_details?.value);
+            setHasBuyer2(currentDeposit.add_second_buyer_details?.value === 'true')
+            // handleBuyerChange('Buyer_Add_Second_Buyer', currentDeposit.add_second_buyer_details?.value);
 
             handleBuyerChange('Buyer_2_Given_Name', currentDeposit.buyer_2_given_name);
             handleBuyerChange('Buyer_2_Surname', currentDeposit.buyer_2_surname);
@@ -264,7 +283,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             handleDevelopmentChange('Development_House_Type_Desc', currentDeposit.house_type_description);
             handleDevelopmentChange('Development_Size', currentDeposit.size);
             handleDevelopmentChange('Development_Facade', filterValuePerLabel(facades, currentDeposit.selected_facade));
-            handleDevelopmentChange('Development_Region', filterValuePerLabel(regions, currentDeposit.selected_region));
+            handleDevelopmentChange('Development_Region', currentDeposit.region?.value);
 
             handleDevelopmentChange('Development_Address_Is_Land_Titled', currentDeposit.is_the_land_titled_ ? 'Yes' : 'No' );
             handleDevelopmentChange('Development_Address_Is_KDRB_OR_Vacant', currentDeposit.is_this_a_kdrb_or_vacant_lot_?.value);
@@ -288,6 +307,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
             handleDepositChange('Deposit_Package_Type', filterValuePerLabel(packageTypeOptions, currentDeposit.package_type?.value,'value', 'value'));
             handleDepositChange('Deposit_Context', filterValuePerLabel(contextOptions, currentDeposit.context?.value,'value', 'value'));
+            handleDepositChange('Sale_Type', filterValuePerLabel(saleTypeOptions, currentDeposit.sale_type?.value,'value', 'value'));
             handleDepositChange('Deposit_Amount_Paid', currentDeposit.amount_paid);
             handleDepositChange('Deposit_Amount_Paid_Print', currentDeposit.amount_paid__print_);
             handleDepositChange('Deposit_Payment_Method', currentDeposit.payment_method?.value);
@@ -330,6 +350,28 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         // console.log("========")
         return '';
     }
+    /**
+     *
+     * @param options array
+     * @param value string
+     * @param key filter key that the value you want to connect
+     * @param valueKey key value you want to get
+     * @returns {*|string}
+     */
+    function filterLabelPerValue(options, value, key =  'value', valueKey = 'label'){
+        const filter = options.filter(item => item[key] === value)
+        // console.log("=========")
+        // console.log("options")
+        // console.log(options)
+        // console.log(value)
+        // console.log(filter)
+        if(filter && filter.length > 0 ){
+            // console.log(filter[0])
+            return filter[0][valueKey];
+        }
+        // console.log("========")
+        return '';
+    }
     useEffect(() => {
         handleBuyerChange('Buyer_1_Given_Name', currentBuyer.contact_first_name);
         handleBuyerChange('Buyer_1_Surname', currentBuyer.contact_last_name);
@@ -356,16 +398,20 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     });
     const handleDevelopmentRegionChange = (region) => {
         setDevelopment({...development, Development_Region: region})
-        const selectedRegion = regions.find(item => item.hs_object_id === region);
+        const selectedRegion = regions.find(item => item.value === region);
+        console.log("Regions")
+        console.log(regions)
+        console.log(selectedRegion)
 
         // If the region is found, extract the label
-        const regionLabel = selectedRegion ? selectedRegion.name : '';
+        const regionLabel = selectedRegion ? selectedRegion.value : '';
+        console.log(regionLabel)
 
         if (region) {
-            const filteredTeams = teams.filter(item => item.label.startsWith(regionLabel));
-            const filteredTeamOption = [{label: '--None--', value: '--None--'}, ...filteredTeams];
+            console.log(region)
 
-            setTeams(filteredTeamOption || []);
+            const filteredTeams = initialTeam.filter(item => item.label.startsWith(regionLabel));
+            setTeams(filteredTeams || []);
             setSystem({...system, System_Team: ""})
         }
     }
@@ -482,15 +528,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     };
 
     const handleChangePaymentMethod = (value) => {
-        setDeposit({...deposit, Deposit_Payment_Method: value})
         const paymentIsCard = checkIfPaymentMethodIsCard(value);
         if (paymentIsCard) {
-            setDeposit({...deposit, Deposit_Payment_Terminal_Number: 'Bpoint'})
-            setShowTerminalNumber(true)
+            handleDepositChange('Deposit_Payment_Terminal_Number', 'Bpoint');
         }else{
-            setDeposit({...deposit, Deposit_Payment_Terminal_Number: ''})
-            setShowTerminalNumber(false)
+            handleDepositChange('Deposit_Payment_Terminal_Number', '');
         }
+        handleDepositChange('Deposit_Payment_Method', value);
     }
     const checkIfPaymentMethodIsCard = (value) => {
         return (value === 'Credit Card' || value === 'Debit Card')
@@ -709,14 +753,12 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_Developer"
                             placeholder=""
                             required={true}
-                            options={[{label: '[UNKNOWN]', value: 'unknown'}, ...developers.map(item => ({
-                                label: item.name, value: item.hs_object_id
-                            }))]}
+                            options={generateDropdownOptions(developers)}
                             value={development.Development_Developer}
                             onChange={(value) => setDevelopment({...development, Development_Developer: value})}
                         />
 
-                        {development.Development_Developer === 'unknown' && (<Input
+                        {dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(developers), development.Development_Developer)) && (<Input
                             name="Development_Developer_Desc"
                             label="Developer Description"
                             placeholder=""
@@ -730,13 +772,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_Estate"
                             placeholder=""
                             required={true}
-                            options={[{label: '[UNKNOWN]', value: 'unknown'}, ...estates.map(item => ({
-                                label: item.name, value: item.hs_object_id
-                            }))]}
+                            options={generateDropdownOptions(estates)}
                             value={development.Development_Estate}
                             onChange={(value) => setDevelopment({...development, Development_Estate: value})}
                         />
-                        {development.Development_Estate === 'unknown' && (<Input
+                        {dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(estates), development.Development_Estate)) && (<Input
                             name="Development_Estate_Desc"
                             label="Estate Description"
                             placeholder=""
@@ -750,13 +790,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_Display_Centre"
                             placeholder=""
                             required={true}
-                            options={[{label: '[UNKNOWN]', value: 'unknown'}, ...displayCentre.map(item => ({
-                                label: item.name, value: item.hs_object_id
-                            }))]}
+                            options={generateDropdownOptions(displayCentre)}
                             value={development.Development_Display_Centre}
-                            onChange={(value) => setDevelopment({...development, Development_Display_Centre: value})}
+                            onChange={(value) => handleDevelopmentChange("Development_Display_Centre", value)}
                         />
-                        {development.Development_Display_Centre === 'unknown' && (<Input
+                        {dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(displayCentre), development.Development_Display_Centre)) && (<Input
                             name="Development_Display_Centre_Desc"
                             label="Display Centre Description"
                             placeholder=""
@@ -770,13 +808,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_House_Type"
                             placeholder=""
                             required={true}
-                            options={[{label: '[UNKNOWN]', value: 'unknown'}, ...houseTypes.map(item => ({
-                                label: item.name, value: item.hs_object_id
-                            }))]}
+                            options={generateDropdownOptions(houseTypes)}
                             value={development.Development_House_Type}
-                            onChange={(value) => setDevelopment({...development, Development_House_Type: value})}
+                            onChange={(value) => handleDevelopmentChange("Development_House_Type", value)}
                         />
-                        {development.Development_House_Type === 'unknown' && (<Input
+                        {dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(houseTypes), development.Development_House_Type)) && (<Input
                             name="Development_House_Type_Desc"
                             label="House Type Description"
                             placeholder=""
@@ -807,9 +843,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             name="Development_Region"
                             placeholder=""
                             required={true}
-                            options={regions.map(item => ({
-                                label: item.name, value: item.hs_object_id
-                            }))}
+                            options={regions}
                             value={development.Development_Region}
                             onChange={(value) => handleDevelopmentRegionChange(value)}
                         />
@@ -1042,6 +1076,15 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         value={deposit.Deposit_Context}
                         onChange={(value) => setDeposit({...deposit, Deposit_Context: value})}
                     />
+                    <Select
+                        label="Sale Type"
+                        name="Sale_Type"
+                        placeholder=""
+                        required={true}
+                        value={deposit.Sale_Type}
+                        options={saleTypeOptions}
+                        onChange={(value) => setDeposit({...deposit, Sale_Type: value})}
+                    />
                     <NumberInput
                         label="Amount Paid"
                         name="Deposit_Amount_Paid"
@@ -1149,6 +1192,55 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         </>
     );
 
+    function baseToUnix(baseDate) {
+        const date = new Date(Date.UTC(baseDate.year, baseDate.month, baseDate.date));
+        const unix = date.getTime(); // Convert milliseconds to seconds
+        return unix;
+
+    }
+
+    function unixToString(unixDate, name = '') {
+        if(name){
+            console.log("++++++++++")
+            console.log(name)
+            console.log(unixDate)
+        }
+        if (!unixDate) {
+            return;
+        }
+        const date = new Date(parseFloat(unixDate));
+        const baseDate = {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth(),
+            date: date.getUTCDate()
+        };
+        if(name){
+            console.log(date)
+            console.log(baseDate)
+        }
+        const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month).padStart(2, '0')}/${baseDate.year}`;
+        if(name){
+            console.log(formattedDate)
+            console.log("++++++++++")
+        }
+        return formattedDate;
+    }
+
+    function unixToBase(unixDate) {
+        if (!unixDate) {
+            return '';
+        }
+        const date = new Date(parseFloat(unixDate));
+        const baseDate = {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth(),
+            date: date.getUTCDate()
+        };
+        const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
+        return {...baseDate,formattedDate: formattedDate}
+    }
+
+
     const fields = [
         {
             name: "Buyer_1_Given_Name",
@@ -1184,7 +1276,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Buyer_2_Email",
             label: "Buyer 2 Email",
-            required: () => buyer.Buyer_Add_Second_Buyer && !buyer.Buyer_2_Email_Not_Provided,
+            required: () => buyer.Buyer_Add_Second_Buyer,
         },
         {
             name: "Buyer_2_Mobile",
@@ -1200,7 +1292,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Development_Developer_Desc",
             label: "Developer Description",
-            required: () => development.Development_Developer === 'unknown',
+            required: () => dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(developers), development.Development_Developer)),
         },
         {
             name: "Development_Estate",
@@ -1210,7 +1302,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Development_Estate_Desc",
             label: "Estate Description",
-            required: () => development.Development_Estate === 'unknown',
+            required: () => dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(estates), development.Development_Estate)),
         },
         {
             name: "Development_Display_Centre",
@@ -1220,7 +1312,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Development_Display_Centre_Desc",
             label: "Display Centre Description",
-            required: () => development.Development_Display_Centre === 'unknown',
+            required: () => dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(displayCentre), development.Development_Display_Centre)),
         },
         {
             name: "Development_House_Type",
@@ -1230,7 +1322,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {
             name: "Development_House_Type_Desc",
             label: "House Type Description",
-            required: () => development.Development_House_Type === 'unknown',
+            required: () => dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(houseTypes), development.Development_House_Type)),
         },
         {
             name: "Development_Region",
@@ -1285,17 +1377,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         {name: "Deposit_Amount_Paid", label: "Amount Paid", required: true},
         {name: "Deposit_Amount_Paid_Print", label: "Amount Paid (Print)", required: true},
         {name: "Deposit_Payment_Method", label: "Payment Method", required: true},
-        {
-            name: "Deposit_Payment_Terminal_Number",
-            label: "Terminal Number",
-            required: () => (deposit.Deposit_Payment_Method === 'Credit Card' || deposit.Deposit_Payment_Method === 'Debit Card'),
-        },
         {name: "Deposit_Promotion_Type", label: "Promotion Type", required: true},
         {name: "Deposit_Sales_Accept_Forecast", label: "Sales Accept Forecast", required: true},
-
         {name: "System_Team", label: "Team", required: true},
-        // {name: "System_Representative", label: "Simonds Representative", required: true},
-        {name: "System_Company_Name", label: "Company Name", required: true},
     ];
 
     const [validationError, setValidationError] = useState([]);
@@ -1309,15 +1393,16 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         fields.forEach(field => {
             const {name, required} = field;
             const value = buyer[name] || development[name] || deposit[name] || system[name];
+
             // Check if required is a function and call it, otherwise use the boolean value
             const isRequired = typeof required === 'function' ? required() : required;
 
             // Logic to determine if the field is invalid
             const logic = isRequired && (!value || value === '');
-            // console.log(name)
-            // console.log("Value: "+ value)
-            // console.log("required: "+required)
-            // console.log("Logic: "+logic)
+            console.log(name)
+            console.log("Value: "+ value)
+            console.log("required: "+isRequired)
+            console.log("Logic: "+logic)
             // (!condition || condition()) &&
             if (logic) {
                 isValid = false;
@@ -1325,10 +1410,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 errors.push(field.label);
                 // console.log("error message: "+errorMessageField)
             }
-            // console.log("isValid: "+isValid)
-            // console.log("++++++++++++")
-            // console.log(errors)
-            // console.log("++++++++++++")
+            console.log("isValid: "+isValid)
+            console.log("++++++++++++")
+            console.log(errors)
+            console.log("++++++++++++")
         });
 
         setValidationError([]);
@@ -1337,60 +1422,15 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         }
 
         console.log('after validation')
-        return !isValid;
+        console.log(isValid)
+        console.log(errors)
+        return isValid;
     };
 
     const [submittedData, setSubmittedData] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(null);
     const [validated, setValidated] = useState(false);
 
-    function baseToUnix(baseDate) {
-        const date = new Date(Date.UTC(baseDate.year, baseDate.month, baseDate.date));
-        const unix = date.getTime(); // Convert milliseconds to seconds
-        return unix;
-
-    }
-
-    function unixToString(unixDate, name = '') {
-        if(name){
-            console.log("++++++++++")
-            console.log(name)
-            console.log(unixDate)
-        }
-        if (!unixDate) {
-            return;
-        }
-        const date = new Date(parseFloat(unixDate));
-        const baseDate = {
-            year: date.getUTCFullYear(),
-            month: date.getUTCMonth(),
-            date: date.getUTCDate()
-        };
-        if(name){
-            console.log(date)
-            console.log(baseDate)
-        }
-        const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month).padStart(2, '0')}/${baseDate.year}`;
-        if(name){
-            console.log(formattedDate)
-            console.log("++++++++++")
-        }
-        return formattedDate;
-    }
-
-    function unixToBase(unixDate) {
-        if (!unixDate) {
-            return '';
-        }
-        const date = new Date(parseFloat(unixDate));
-        const baseDate = {
-            year: date.getUTCFullYear(),
-            month: date.getUTCMonth(),
-            date: date.getUTCDate()
-        };
-        const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
-        return {...baseDate,formattedDate: formattedDate}
-    }
     const generateDeal = () => {
 
         const submissionData = {
@@ -1402,7 +1442,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
             currentBuyer,
             currentBuyerId,
         };
-
         console.log(submissionData)
         runServerless({
             name: "submitFormData",
@@ -1421,24 +1460,27 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
 
         });
     };
-    const [submitted, setSubmitted] = useState(false);
 
     const handleSubmit = () => {
-
-        setSubmitted(true)
-        console.log("validationError")
-        console.log(validationError)
-        console.log("validated")
-        console.log(validated)
-        if (!validateForm()) {
-            return;
-        }
-        console.log("validationError 1")
-        setValidated(true);
         setSubmitLoading(true);
         generateDeal()
-        setSubmitted(false)
     };
+
+    useEffect(() => {
+        validateOnChange();
+    }, [buyer, development, deposit, system]);
+    const validateOnChange = () => {
+        console.log("======VALIDATION=====")
+        console.log("validationError")
+        console.log(validationError)
+        const validatedForm = validateForm();
+        if (validatedForm) {
+            setValidated(true);
+        }
+        console.log("validated")
+        console.log(validatedForm)
+    }
+
 
     const readonlyBuyerDetails = (currentDeposit &&
         <Flex gap="sm" direction='column'>
@@ -1688,7 +1730,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         </Flex>
     );
     const handleChangeDDOptions = (value) => {
-        setDropdownDetailTitle(value);
         if (value === 'Initial Fee') {
             let deposit = dealDeposits.filter(item => item.deposit_type === 'Initial Fee');
             if (deposit.length > 0) {
@@ -1706,23 +1747,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                 setCurrentDeposit(deposit);
             }
         }
-        setShowDepositInitialFee(true)
     }
-
-    const ddOptions = [
-        {
-            label: 'Initial Fee',
-            onClick: () => handleChangeDDOptions('Initial Fee'),
-        },
-        {
-            label: 'Preliminary Fee',
-            onClick: () => handleChangeDDOptions('Preliminary Fee'),
-        },
-    ];
-    const [dropdownDetailTitle, setDropdownDetailTitle] = useState("Filter Deposit");
-    const [showDepositInitialFee, setShowDepositInitialFee] = useState(false);
-
-
     const editInitialFee = () =>{
         setDepositTitle("Deposit Details for Initial Fee")
         if(initialDepositFee) {
@@ -1733,6 +1758,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
     }
     const editPrelimFee = () =>{
         setDepositTitle("Deposit Details for Preliminary Fee")
+        console.log("Deposit Details for Preliminary Fee")
+        console.log(initialDepositFee)
+        console.log(prelimDepositFee)
         if(prelimDepositFee){
             setCurrentDeposit(prelimDepositFee);
         }else{
@@ -1744,7 +1772,6 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[1].value);
         setShowForm(true)
     }
-
 
     const initialDisplay = (
         <>
@@ -1782,7 +1809,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                         <TableCell width="min">{prelimDepositFee?.payment_method?.value??'--'}</TableCell>
                         <TableCell width="min"></TableCell>
                         <TableCell width="min">
-                            <Button
+                            { showSecondButton && <Button
                                 onClick={editPrelimFee}
                                 variant="primary"
                                 size="sm"
@@ -1790,6 +1817,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                             >
                                 Edit
                             </Button>
+                            }
                         </TableCell>
                     </TableRow>
                 </TableBody>
@@ -1869,7 +1897,47 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
         </>
     )
 
+    const unvalidatedButton =
+        validated? <></>:<Button
+            overlay={<Modal id="validation-modal" title="Validation Error" width="md">
+                        <ModalBody>
+                            <>
+                                {validating &&
+                                    <LoadingSpinner size='xs'
+                                                    label={"Validating.."}></LoadingSpinner>}
 
+
+                                {
+                                    validationError.length > 0 && <>
+                                        <Text> The following fields are required: </Text>
+                                        <List variant="ordered-styled">
+                                            {validationError.map((validationErr) => (validationErr))}
+                                        </List>
+                                    </>
+                                }
+
+                            </>
+                            {/*<Text>{JSON.stringify(validationError)}</Text>*/}
+                            {/*<Text>{JSON.stringify(buyer)}</Text>*/}
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button
+                                onClick={() => actions.closeOverlay('validation-modal')}>Ok</Button>
+                        </ModalFooter>
+                    </Modal>}
+            disabled={submitLoading} size="md"
+            id={'submit_button'}
+            variant="primary">
+            Submit Errors Found
+        </Button>;
+    const validatedButton =
+        !validated? <></>: <Button
+            onClick={handleSubmit}
+            disabled={submitLoading} size="md"
+            id={'submit_button'}
+            variant="primary">
+            Submit Clean
+        </Button>;
     return (
         <>
             {loading &&
@@ -1897,41 +1965,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions}
                                         >
                                             Cancel
                                         </Button>
-                                        <Button
-                                            overlay={
-                                                (!submitted ? null : validated ? null :
-                                                    <Modal id="validation-modal" title="Validation Error" width="md">
-                                                        <ModalBody>
-                                                            <>
-                                                                {validating &&
-                                                                    <LoadingSpinner size='xs'
-                                                                                    label={"Validating.."}></LoadingSpinner>}
+                                        {validatedButton}
+                                        {unvalidatedButton}
 
-
-                                                                {
-                                                                    validationError.length > 0 && <>
-                                                                        <Text> The following fields are required: </Text>
-                                                                        <List variant="ordered-styled">
-                                                                            {validationError.map((validationErr) => (validationErr))}
-                                                                        </List>
-                                                                    </>
-                                                                }
-
-                                                            </>
-                                                            {/*<Text>{JSON.stringify(validationError)}</Text>*/}
-                                                            {/*<Text>{JSON.stringify(buyer)}</Text>*/}
-                                                        </ModalBody>
-                                                        <ModalFooter>
-                                                            <Button
-                                                                onClick={() => actions.closeOverlay('validation-modal')}>Ok</Button>
-                                                        </ModalFooter>
-                                                    </Modal>)
-                                            }
-                                            onClick={handleSubmit} disabled={submitLoading} size="md" type="submit"
-                                            variant="primary">Submit</Button>
                                     </Flex>
-
-                                    <Text>{JSON.stringify(submittedData)}</Text>
                                 </Flex>
                             </Form>
                         )

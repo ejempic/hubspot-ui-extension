@@ -16,7 +16,7 @@ const fetchDevelopersAndEstates = (token) => {
     const query = `
   query getFields {
   CRM {
-    p_developers_collection(filter: {status__neq: "inactive"}) {
+    p_developers_collection(filter: {status__neq: "inactive"}, orderBy: name__asc) {
       items {
         name
         hs_object_id
