@@ -118,6 +118,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         const [currentDeposit, setCurrentDeposit] = useState(null);
         const [initialDepositFee, setInitialDepositFee] = useState(null);
         const [prelimDepositFee, setPrelimDepositFee] = useState(null);
+        const [customizationFees, setCustomizationFees] = useState([]);
         const [totalDepositFee, setTotalDepositFee] = useState('--');
         const [whoisPayingOptionsFinal, setWhoisPayingOptionsFinal] = useState(whoisPayingOptions)
         const [saleTypeOptions, setSaleTypeOptions] = useState(null);
@@ -166,49 +167,64 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 });
             });
 
+            console.log("user")
+            console.log(user)
         }, []);
 
         useEffect(() => {
             if (hasBuyer2) {
-                setWhoisPayingOptionsFinal(whoisPayingOptions)
-                setDeposit({...deposit, Deposit_Who_Paying_Deposit: ''})
+                setWhoisPayingOptionsFinal(
+                    [
+                        {label: 'Buyer 1 - '+ buyer?.Buyer_1_Given_Name+" "+ buyer?.Buyer_1_Surname, value: 'Buyer 1'},
+                        {label: 'Buyer 2 - '+ buyer?.Buyer_2_Given_Name+" "+ buyer?.Buyer_2_Surname, value: 'Buyer 2'}
+                    ])
             } else {
                 setDeposit({...deposit, Deposit_Who_Paying_Deposit: whoisPayingOptions[0].value})
-                setWhoisPayingOptionsFinal([{label: 'Buyer 1', value: 'Buyer 1'}])
+                setWhoisPayingOptionsFinal([{label: 'Buyer 1 - '+ buyer?.Buyer_1_Given_Name+" "+ buyer?.Buyer_1_Surname, value: 'Buyer 1'}])
             }
+            handleBuyerChange("Buyer_Add_Second_Buyer", hasBuyer2)
         }, [hasBuyer2]);
         useEffect(() => {
             fetchProperties(["hs_object_id"]).then((properties) => {
                 setCurrentBuyerId(properties.hs_object_id);
             });
-            fetchProperties('*').then((properties) => console.log(properties));
+            // fetchProperties('*').then((properties) => console.log(properties));
         }, [fetchProperties]);
         const fetchBuyerDetails = () => {
             runServerless({name: "fetchBuyerDetails", parameters: {hs_object_id: currentBuyerId}}).then((resp) => {
                 // console.log(resp);
                 if (resp.status === "SUCCESS") {
+                    console.log(resp.response)
                     setCurrentBuyer(resp.response.data.CRM.deal);
 
                     const depositItems = resp.response.data.CRM.deal?.associations.p_deposit_collection__deal_to_deposit.items
                     setDealDeposits(depositItems);
                     setDepositTitle(depositTitleInitial)
                     if (depositItems.length === 0) {
-                        setShowFirstButton(true)
+                        setShowFirstButton(false)
                         setShowSecondButton(false)
                         setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[0].value})
                         // setDepositTitle("Deposit Details for Initial Fee")
                     } else {
-                        console.log(depositItems)
                         setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[1].value})
                         let initialDeposit = depositItems.find(item => item.deposit_type === 'Initial Fee');
                         let prelimDeposit = depositItems.find(item => item.deposit_type === 'Preliminary Fee');
-                        console.log("===============")
+                        let customizationFees = depositItems.filter(item => item.deposit_type === depositDescriptionOptions[2].value)
+                                                            .sort((a, b) => a.hs_createdate - b.hs_createdate);
+                        console.log("")
+                        console.log("")
+                        console.log("======= LOADING FROM deals========")
                         console.log(initialDeposit)
                         console.log(prelimDeposit)
+                        console.log(customizationFees)
                         console.log("==================")
+                        console.log("")
+                        console.log("")
+                        console.log("")
+
                         // let totalAmount = 0;
                         if (initialDeposit) {
-                            setShowSecondButton(true)
+                            setShowFirstButton(true)
                             setInitialDepositFee(initialDeposit);
                             setCurrentDeposit(initialDeposit);
                         }
@@ -216,12 +232,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                             setShowSecondButton(true)
                             setPrelimDepositFee(prelimDeposit);
                             setCurrentDeposit(prelimDeposit);
-                        } else {
-                            // setCurrentBuyer(resp.response.data.CRM.deal);
-                            // given_name
-                            // buyer_1_surname
-                            // buyer_1_email
-                            // buyer_1_mobile
+                        }
+                        if (customizationFees.length > 0) {
+                            setCustomizationFees(customizationFees);
+                            setCurrentDeposit(customizationFees);
                         }
                         setShowTerminalNumber(checkIfPaymentMethodIsCard(initialDeposit.payment_method?.value))
                     }
@@ -232,8 +246,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         useEffect(() => {
             fetchBuyerDetails()
         }, [currentBuyerId]);
+        const [currentDepositLoaded, setCurrentDepositLoaded] = useState(false);
         useEffect(() => {
             if (currentDeposit && optionsLoaded) {
+                console.log("")
+                console.log("")
                 console.log("========================")
                 console.log("currentDeposit")
                 console.log(currentDeposit)
@@ -317,9 +334,20 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                         System_Representative: currentDeposit.simonds_representative?.firstname + ' ' + currentDeposit.simonds_representative?.lastname,
                     })
                 }
+                console.log("")
+                setCurrentDepositLoaded(true);
             }
-        }, [currentDeposit, optionsLoaded, whoisPayingOptionsFinal]);
+        }, [currentDeposit, optionsLoaded]);
 
+        useEffect(() => {
+            if (currentDeposit && optionsLoaded) {
+                console.log("==================whoisPayingOptionsFinal=======================")
+                console.log(whoisPayingOptionsFinal)
+                console.log(currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value)
+                console.log("=========================================")
+                handleDepositChange('Deposit_Who_Paying_Deposit', filterValuePerLabel(whoisPayingOptionsFinal, currentDeposit.is_the_deposit_from_buyer_1_or_buyer_2_?.value, 'value', 'value'));
+            }
+        }, [whoisPayingOptionsFinal]);
         /**
          *
          * @param options array
@@ -549,6 +577,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                         <Button
                             onClick={() => {
                                 setShowForm(false)
+                                handleDepositChange('Deposit_Object_Id', null);
                             }}
                             size="xs"
                             type="button"
@@ -703,30 +732,36 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     label="Street Number"
                                     value={buyer.Buyer_Info_Street_Number}
                                     readOnly={isAddressManually}
+                                    onChange={(val) => handleBuyerChange("Buyer_Info_Street_Number", val)}
                                 />
                                 <Input
                                     name="Buyer_Info_Street_Name"
                                     label="Street Name"
                                     value={buyer.Buyer_Info_Street_Name}
                                     readOnly={isAddressManually}
+                                    onChange={(val) => handleBuyerChange("Buyer_Info_Street_Name", val)}
                                 />
                                 <Input
                                     name="Buyer_Info_Suburb"
                                     label="Suburb"
                                     value={buyer.Buyer_Info_Suburb}
                                     readOnly={isAddressManually}
+                                    onChange={(val) => handleBuyerChange("Buyer_Info_Suburb", val)}
                                 />
                                 <Input
                                     name="Buyer_Info_State"
                                     label="State"
                                     value={buyer.Buyer_Info_State}
                                     readOnly={isAddressManually}
+                                    onChange={(val) => handleBuyerChange("Buyer_Info_State", val)}
+
                                 />
                                 <Input
                                     name="Postcode"
                                     label="Postcode"
                                     value={buyer.Postcode}
                                     readOnly={isAddressManually}
+                                    onChange={(val) => handleBuyerChange("Postcode", val)}
                                 />
                             </>
                         )}
@@ -799,7 +834,26 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     value={development.Development_Display_Centre_Desc}
                                     onChange={(value) => handleDevelopmentChange("Development_Display_Centre_Desc", value)}
                                 />)}
-
+                            <Select
+                                label="Region"
+                                name="Development_Region"
+                                placeholder=""
+                                required={true}
+                                options={regions}
+                                value={development.Development_Region}
+                                onChange={(value) => handleDevelopmentRegionChange(value)}
+                            />
+                            <Select
+                                label="Facade"
+                                name="Development_Facade"
+                                placeholder=""
+                                required={true}
+                                options={facades.map(item => ({
+                                    label: item.name, value: item.hs_object_id
+                                }))}
+                                value={development.Development_Facade}
+                                onChange={(value) => setDevelopment({...development, Development_Facade: value})}
+                            />
                             <Select
                                 label="House Type"
                                 name="Development_House_Type"
@@ -818,32 +872,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     value={development.Development_House_Type_Desc}
                                     onChange={(value) => handleDevelopmentChange("Development_House_Type_Desc", value)}
                                 />)}
-
                             <Input
                                 name="Development_Size"
                                 label="House Size"
                                 value={development.Development_Size}
                                 onChange={(value) => handleDevelopmentChange("Development_Size", value)}
-                            />
-                            <Select
-                                label="Facade"
-                                name="Development_Facade"
-                                placeholder=""
-                                required={true}
-                                options={facades.map(item => ({
-                                    label: item.name, value: item.hs_object_id
-                                }))}
-                                value={development.Development_Facade}
-                                onChange={(value) => setDevelopment({...development, Development_Facade: value})}
-                            />
-                            <Select
-                                label="Region"
-                                name="Development_Region"
-                                placeholder=""
-                                required={true}
-                                options={regions}
-                                value={development.Development_Region}
-                                onChange={(value) => handleDevelopmentRegionChange(value)}
                             />
                         </Tile>
                     </Accordion>
@@ -1768,12 +1801,30 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 }
             }
         }
-        const editInitialFee = () => {
+
+
+    const ddOptions = [
+        {
+            label: 'Create Preliminary Fee',
+            onClick: () => editPrelimFee(),
+        },
+        {
+            label: 'Add Customisation Fee',
+            onClick: () => addCustomFee(),
+        },
+    ];
+
+    const editInitialFee = () => {
             setDepositTitle("Deposit Details for Initial Fee")
             if (initialDepositFee) {
                 handleDepositChange('Deposit_Object_Id', currentDeposit.hs_object_id);
                 console.log('Actual edit initial')
+                console.log(initialDepositFee)
                 setCurrentDeposit(initialDepositFee);
+                handleDepositChange('Deposit_Amount_Paid', currentDeposit.amount_paid);
+                handleDepositChange('Deposit_Amount_Paid_Print', currentDeposit.amount_paid__print_);
+            }else{
+                handleDepositChange('Deposit_Object_Id', null);
             }
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[0].value);
             setShowForm(true)
@@ -1781,13 +1832,17 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         const editPrelimFee = () => {
             setDepositTitle("Deposit Details for Preliminary Fee")
             console.log("Deposit Details for Preliminary Fee")
-            console.log(initialDepositFee)
-            console.log(prelimDepositFee)
             if (prelimDepositFee) {
                 handleDepositChange('Deposit_Object_Id', currentDeposit.hs_object_id);
                 console.log('Actual edit prelim')
+                console.log(initialDepositFee)
                 setCurrentDeposit(prelimDepositFee);
+                handleDepositChange('Deposit_Amount_Paid', '');
+                handleDepositChange('Deposit_Amount_Paid_Print', '');
             } else {
+                handleDepositChange('Deposit_Object_Id', null);
+                console.log('create prelim from initial')
+                console.log(initialDepositFee)
                 setCurrentDeposit(initialDepositFee);
                 handleDepositChange('Deposit_Amount_Paid', '');
                 handleDepositChange('Deposit_Amount_Paid_Print', '');
@@ -1796,65 +1851,182 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             setShowForm(true)
         }
 
+        const addCustomFee = () => {
+            setDepositTitle("Add Deposit Details for Customisation Fee")
+            console.log("Add Deposit Details for Customisation Fee")
+            if (customizationFees.length > 0) {
+                const lastFee = customizationFees[customizationFees.length - 1];
+                setCurrentDeposit(lastFee);
+                console.log(lastFee)
+                console.log("from custom fee")
+            }else if(prelimDepositFee){
+                console.log(prelimDepositFee)
+                console.log("from prelim")
+                setCurrentDeposit(prelimDepositFee);
+            }else{
+
+            }
+            handleDepositChange('Deposit_Object_Id', null);
+            handleDepositChange('Deposit_Amount_Paid', '');
+            handleDepositChange('Deposit_Amount_Paid_Print', '');
+            handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[2].value);
+            setShowForm(true)
+        }
+         const editCustomFee = (customFee) => {
+            setDepositTitle("EDIT Deposit Details for Customisation Fee")
+            console.log("EDIT Deposit Details for Customisation Fee")
+            console.log(customFee)
+            if (customFee) {
+                handleDepositChange('Deposit_Object_Id', customFee.hs_object_id);
+                setCurrentDeposit(customFee);
+                handleDepositChange('Deposit_Amount_Paid', customFee.amount_paid);
+                handleDepositChange('Deposit_Amount_Paid_Print', customFee.amount_paid__print_);
+            }
+            handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[2].value);
+            setShowForm(true)
+        }
+
+        const dynamicButtonToShow = () => {
+                if(initialDepositFee === null){
+                    return <Button
+                        onClick={editInitialFee}
+                        variant="primary"
+                        size="sm"
+                        type="button"
+                    >
+                        Create Initial Fee
+                    </Button>
+                }else if(prelimDepositFee === null){
+                    return <Dropdown
+                        options={ddOptions}
+                        variant="primary"
+                        buttonSize="sm"
+                        buttonText="Add Preliminary or Customisation Fee"
+                    />
+                    // <Button
+                    //     onClick={editPrelimFee}
+                    //     variant="primary"
+                    //     size="sm"
+                    //     type="button"
+                    // >
+                    //     Create Preliminary Fee
+                    // </Button>
+
+                }else{
+
+
+                    return <Button
+                        onClick={addCustomFee}
+                        variant="primary"
+                        size="sm"
+                        type="button"
+                    >
+                        Add Customisation Fee
+                    </Button>
+                }
+        }
+
         const initialDisplay = (
             <>
-                <Table bordered={true}>
-                    <TableHead>
-                        <TableRow>
-                            <TableHeader width="min">Deposit Type</TableHeader>
-                            <TableHeader width="min">Amount</TableHeader>
-                            <TableHeader width="min">Payment Type</TableHeader>
-                            <TableHeader width="min">Status</TableHeader>
-                            <TableHeader width="min">Action</TableHeader>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
+                <Flex direction={'column'} gap={'medium'}>
 
-                        <TableRow>
-                            <TableCell width="min">Initial Fee</TableCell>
-                            <TableCell width="min">{initialDepositFee?.amount_paid ?
-                                new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: 'USD'
-                                }).format(initialDepositFee?.amount_paid)
-                                : '--'}</TableCell>
-                            <TableCell width="min">{initialDepositFee?.payment_method?.value ?? '--'}</TableCell>
-                            <TableCell width="min"></TableCell>
-                            <TableCell width="min">
-                                <Button
-                                    onClick={editInitialFee}
-                                    variant="primary"
-                                    size="sm"
-                                    type="button"
-                                >
-                                    Edit
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                        <TableRow>
-                            <TableCell width="min">Preliminary Fee</TableCell>
-                            <TableCell width="min">{prelimDepositFee?.amount_paid ?
-                                new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: 'USD'
-                                }).format(prelimDepositFee?.amount_paid)
-                                : '--'}</TableCell>
-                            <TableCell width="min">{prelimDepositFee?.payment_method?.value ?? '--'}</TableCell>
-                            <TableCell width="min"></TableCell>
-                            <TableCell width="min">
-                                {showSecondButton && <Button
-                                    onClick={editPrelimFee}
-                                    variant="primary"
-                                    size="sm"
-                                    type="button"
-                                >
-                                    Edit
-                                </Button>
-                                }
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                    <Flex direction={'row'} justify={'end'}>
+                        {dynamicButtonToShow()}
+                    </Flex>
+                    {
+                        (initialDepositFee || prelimDepositFee) && (
+                            <Table bordered={true} >
+                                <TableHead>
+                                    <TableRow>
+                                        <TableHeader width="min">Deposit Type</TableHeader>
+                                        <TableHeader width="min">Amount</TableHeader>
+                                        <TableHeader width="min">Payment Type</TableHeader>
+                                        <TableHeader width="min">Status</TableHeader>
+                                        <TableHeader width="min">Action</TableHeader>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {
+                                        initialDepositFee &&
+                                        <TableRow>
+                                            <TableCell width="min">Initial Fee</TableCell>
+                                            <TableCell width="min">{initialDepositFee?.amount_paid ?
+                                                new Intl.NumberFormat('en-US', {
+                                                    style: 'currency',
+                                                    currency: 'USD'
+                                                }).format(initialDepositFee?.amount_paid)
+                                                : '--'}</TableCell>
+                                            <TableCell width="min">{initialDepositFee?.payment_method?.value ?? '--'}</TableCell>
+                                            <TableCell width="min"></TableCell>
+                                            <TableCell width="min">
+                                                {showFirstButton && <Button
+                                                    onClick={editInitialFee}
+                                                    variant="primary"
+                                                    size="sm"
+                                                    type="button"
+                                                >
+                                                    Edit
+                                                </Button>}
+
+                                            </TableCell>
+                                        </TableRow>
+                                    }
+                                    {
+                                        prelimDepositFee &&
+                                        <TableRow>
+                                            <TableCell width="min">Preliminary Fee</TableCell>
+                                            <TableCell width="min">{prelimDepositFee?.amount_paid ?
+                                                new Intl.NumberFormat('en-US', {
+                                                    style: 'currency',
+                                                    currency: 'USD'
+                                                }).format(prelimDepositFee?.amount_paid)
+                                                : '--'}</TableCell>
+                                            <TableCell width="min">{prelimDepositFee?.payment_method?.value ?? '--'}</TableCell>
+                                            <TableCell width="min"></TableCell>
+                                            <TableCell width="min">
+                                                {showSecondButton && <Button
+                                                    onClick={editPrelimFee}
+                                                    variant="primary"
+                                                    size="sm"
+                                                    type="button"
+                                                >
+                                                    Edit
+                                                </Button>
+                                                }
+                                            </TableCell>
+                                        </TableRow>
+                                    }
+                                    {customizationFees.length > 0 && customizationFees.map((customizationFee)=>{
+
+                                        return <TableRow>
+                                            <TableCell width="min">Customization Fee</TableCell>
+                                            <TableCell width="min">{customizationFee?.amount_paid ?
+                                                new Intl.NumberFormat('en-US', {
+                                                    style: 'currency',
+                                                    currency: 'USD'
+                                                }).format(customizationFee?.amount_paid)
+                                                : '--'}</TableCell>
+                                            <TableCell width="min">{customizationFee?.payment_method?.value ?? '--'}</TableCell>
+                                            <TableCell width="min"></TableCell>
+                                            <TableCell width="min">
+                                                <Button
+                                                    onClick={()=>{
+                                                        editCustomFee(customizationFee)
+                                                    }}
+                                                    variant="primary"
+                                                    size="sm"
+                                                    type="button"
+                                                >
+                                                    Edit
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    })}
+                                </TableBody>
+                            </Table>
+                        )
+                    }
+                </Flex>
                 {/*<DescriptionList direction="row">*/}
                 {/*    <DescriptionListItem label={'First Name'}>*/}
                 {/*        <Text>{buyer.Buyer_1_Given_Name}</Text>*/}
@@ -1912,21 +2084,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 {/*        <Text>{totalDepositFee}</Text>*/}
                 {/*    </DescriptionListItem>*/}
                 {/*</DescriptionList>*/}
-                {/*{dealDeposits && dealDeposits.length > 0 &&*/}
-                {/*    <Flex gap="sm" direction='column'>*/}
-                {/*        <Divider></Divider>*/}
-                {/*        <Flex gap="sm" direction='row' wrap='wrap' justify='between'>*/}
-                {/*            <Text format={{fontWeight: 'bold'}}>Deposit Details</Text>*/}
-                {/*            <Dropdown*/}
-                {/*                options={ddOptions}*/}
-                {/*                variant="transparent"*/}
-                {/*                buttonSize="md"*/}
-                {/*                buttonText={dropdownDetailTitle}*/}
-                {/*            />*/}
-                {/*            {showDepositInitialFee && depositMadeDisplay}*/}
-                {/*        </Flex>*/}
-                {/*    </Flex>*/}
-                {/*}*/}
+
             </>
         )
 
@@ -1961,7 +2119,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 disabled={submitLoading} size="md"
                 id={'submit_button'}
                 variant="primary">
-                Submit Errors Found
+                Submit
             </Button>;
         const validatedButton =
             !validated ? <></> : <Button
@@ -1969,7 +2127,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 disabled={submitLoading} size="md"
                 id={'submit_button'}
                 variant="primary">
-                Submit Clean
+                Submit
             </Button>;
         return (
             <>
@@ -1993,6 +2151,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                             <Button
                                                 onClick={() => {
                                                     setShowForm(false)
+                                                    handleDepositChange('Deposit_Object_Id', null);
                                                 }}
                                                 type="button"
                                             >

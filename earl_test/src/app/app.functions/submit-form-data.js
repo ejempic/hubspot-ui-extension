@@ -121,6 +121,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             range:deposit.Deposit_Range,
             // deposit_source:deposit.Deposit_Deposit_Source,
             deposit_type: deposit.Deposit_Deposit_Desc,
+            deposit_description: deposit.Deposit_Deposit_Desc,
             package_type:deposit.Deposit_Package_Type,
             context:deposit.Deposit_Context,
             sale_type:deposit.Sale_Type,

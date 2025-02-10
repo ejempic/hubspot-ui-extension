@@ -26,7 +26,7 @@ export const depositSourceOptions = [
 export const depositDescriptionOptions = [
     {label: 'Initial Fee', value: 'Initial Fee'},
     {label: 'Preliminary Fee', value: 'Preliminary Fee'},
-    {label: 'Customization Fee', value: 'Customization Fee'},
+    {label: 'Customisation Fee', value: 'Customisation Fee'},
 ];
 export const packageTypeOptions = [
     {label: 'Fixed Site Costs', value: 'Fixed Site Costs'},
