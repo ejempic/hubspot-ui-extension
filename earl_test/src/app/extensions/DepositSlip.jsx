@@ -153,7 +153,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
 
                 }
             }).then(() => {
-                runServerless({name: "fetchPropertiesOption"}).then((resp) => {
+                runServerless({name: "fetchPropertiesOption", parameters: {portal_id: context.portal?.id}}).then((resp) => {
+                    console.log(resp)
                     if (resp.status === "SUCCESS") {
                         const result = resp.response.results;
                         if (result) {
@@ -171,7 +172,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             console.log(user)
         }, []);
 
-        useEffect(() => {
+        const updateWhoisPayingOptionsFinal = () =>{
+
             if (hasBuyer2) {
                 setWhoisPayingOptionsFinal(
                     [
@@ -182,6 +184,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 setDeposit({...deposit, Deposit_Who_Paying_Deposit: whoisPayingOptions[0].value})
                 setWhoisPayingOptionsFinal([{label: 'Buyer 1 - '+ buyer?.Buyer_1_Given_Name+" "+ buyer?.Buyer_1_Surname, value: 'Buyer 1'}])
             }
+        }
+
+        useEffect(() => {
+            updateWhoisPayingOptionsFinal();
             handleBuyerChange("Buyer_Add_Second_Buyer", hasBuyer2)
         }, [hasBuyer2]);
         useEffect(() => {
@@ -193,7 +199,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         const fetchBuyerDetails = () => {
             runServerless({name: "fetchBuyerDetails", parameters: {hs_object_id: currentBuyerId}}).then((resp) => {
                 // console.log(resp);
-                if (resp.status === "SUCCESS") {
+                if (resp.status === "SUCCESS" && resp.response.data) {
                     console.log(resp.response)
                     setCurrentBuyer(resp.response.data.CRM.deal);
 
@@ -227,17 +233,18 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                             setShowFirstButton(true)
                             setInitialDepositFee(initialDeposit);
                             setCurrentDeposit(initialDeposit);
+                            setShowTerminalNumber(checkIfPaymentMethodIsCard(initialDeposit.payment_method?.value))
                         }
                         if (prelimDeposit) {
                             setShowSecondButton(true)
                             setPrelimDepositFee(prelimDeposit);
                             setCurrentDeposit(prelimDeposit);
+                            setShowTerminalNumber(checkIfPaymentMethodIsCard(prelimDeposit.payment_method?.value))
                         }
                         if (customizationFees.length > 0) {
                             setCustomizationFees(customizationFees);
                             setCurrentDeposit(customizationFees);
                         }
-                        setShowTerminalNumber(checkIfPaymentMethodIsCard(initialDeposit.payment_method?.value))
                     }
                 }
                 setLoading(false);
@@ -1652,7 +1659,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 <Text>{currentDeposit.selected_facade || '--'}</Text>
                             </DescriptionListItem>
                             <DescriptionListItem label={'Region'}>
-                                <Text>{currentDeposit.selected_region || '--'}</Text>
+                                <Text>{currentDeposit.region?.value || '--'}</Text>
                             </DescriptionListItem>
                         </DescriptionList>
                     </Tile>
@@ -1828,6 +1835,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             }
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[0].value);
             setShowForm(true)
+            updateWhoisPayingOptionsFinal();
         }
         const editPrelimFee = () => {
             setDepositTitle("Deposit Details for Preliminary Fee")
@@ -1849,6 +1857,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             }
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[1].value);
             setShowForm(true)
+            updateWhoisPayingOptionsFinal();
         }
 
         const addCustomFee = () => {
@@ -1871,6 +1880,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             handleDepositChange('Deposit_Amount_Paid_Print', '');
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[2].value);
             setShowForm(true)
+            updateWhoisPayingOptionsFinal();
         }
          const editCustomFee = (customFee) => {
             setDepositTitle("EDIT Deposit Details for Customisation Fee")

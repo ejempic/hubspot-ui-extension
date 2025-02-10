@@ -182,11 +182,7 @@ const fetchBuyerDetails = (token, hs_object_id) => {
             selected_estate
             selected_facade
             selected_house_type
-            selected_promotion
             selected_promotion_type
-            selected_region
-            selected_sale_type
-            selected_sale_type_id
             selected_team
             sent_to_framework_
             settlement_date
