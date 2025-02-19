@@ -45,7 +45,7 @@ import {
     whoisPayingOptions,
     paymentMethodOptions,
     dropdownValueIsUnknown,
-    generateDropdownOptions, generateOptionFromProperties
+    generateDropdownOptions, generateOptionFromProperties, handleDropdownOptionChange
 } from './depositSlipSrc/DropdownOptions';
 
 import useBuyer from './depositSlipSrc/useBuyer';
@@ -66,6 +66,7 @@ hubspot.extend(({context, runServerlessFunction, actions}) => (<Extension
 const Extension = ({context, runServerless, sendAlert, fetchProperties, actions, refreshObjectProperties}) => {
 
         const user = context.user;
+        const crm = context.crm;
         const [loading, setLoading] = useState(true);
         const [hasBuyer2, setHasBuyer2] = useState(false);
         const [buyerAddressSearch, setBuyerAddressSearch] = useState("");
@@ -106,6 +107,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         const [showForm, setShowForm] = useState(false);
         const [showFirstButton, setShowFirstButton] = useState(false);
         const [showSecondButton, setShowSecondButton] = useState(false);
+        const [currentDepositId, setCurrentDepositId] = useState(null);
         const [showTerminalNumber, setShowTerminalNumber] = useState(false);//removed
 
         const [currentBuyer, setCurrentBuyer] = useState({
@@ -134,21 +136,31 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         useEffect(() => {
             runServerless({name: "fetchDropdownOptions"}).then((resp) => {
                 if (resp.status === "SUCCESS") {
-                    setDevelopers(resp.response.data.CRM?.p_developers_collection?.items || []);
-                    setEstates(resp.response.data.CRM?.p_estates_collection?.items || []);
-                    setDisplayCentre(resp.response.data.CRM?.p_display_centre_collection?.items || []);
-                    setFacades(resp.response.data.CRM?.p_facades_collection?.items || []);
-                    setHouseTypes(resp.response.data.CRM?.p_house_types_collection?.items || []);
-                    setPromotionTypes(resp.response.data.CRM?.p_promotion_types_collection?.items || []);
+                    console.log('fetchDropdownOptions')
+                    console.log(resp.response)
+
+                    const response_developers =  resp.response.developers.data.CRM?.p_developers_collection?.items || [];
+                    const response_estates = resp.response.estates.data.CRM?.p_estates_collection?.items || [];
+                    const response_displayCenters = resp.response.displayCenters.data.CRM?.p_display_centre_collection?.items || [];
+                    const response_facades = resp.response.facades.data.CRM?.p_facades_collection?.items || [];
+                    const response_houseTypes = resp.response.houseTypes.data.CRM?.p_house_types_collection?.items || [];
+                    const response_promotionTypes = resp.response.promotionTypes.data.CRM?.p_promotion_types_collection?.items || [];
+
+                    setDevelopers(response_developers);
+                    setEstates(response_estates);
+                    setDisplayCentre(response_displayCenters);
+                    setFacades(response_facades);
+                    setHouseTypes(response_houseTypes);
+                    setPromotionTypes(response_promotionTypes);
                     // setRegions(resp.response.data.CRM?.p_regions_collection?.items || []);
 
-                    const initialTeamOption = resp.response.data.CRM?.p_teams_collection?.items;
+                    const initialTeamOption = resp.response.teams.data.CRM?.p_teams_collection?.items;
 
-                    const team = [{label: '--None--', value: '--None--'}, ...initialTeamOption.map(item => ({
-                        label: item.name, value: item.hs_object_id
-                    }))] || [];
-                    setInitialTeam(team);
-                    setTeams(team);
+                    // const team = [initialTeamOption.map(item => ({
+                    //     label: item.name, value: item.hs_object_id
+                    // }))] || [];
+                    setInitialTeam(initialTeamOption);
+                    setTeams(initialTeamOption);
                     let dropdownLoaded = true;
 
                 }
@@ -170,8 +182,67 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
 
             console.log("user")
             console.log(user)
+            console.log(context)
         }, []);
 
+        useEffect(() => {
+            if(developers.length === 500){
+                refetchDevelopers(500);
+            }
+        }, [developers]);
+        useEffect(() => {
+            console.log('refetchEstates', estates.length);
+            if(estates.length === 500){
+                refetchEstates(500);
+            }
+        }, [estates]);
+        const refetchDevelopers = async (length) => {
+            console.log('refetchDevelopers', length);
+            try {
+                const resp = await runServerless({ name: "fetchDropdownOptions", parameters: { dropdown: 'developers', length: length } });
+                const response_developers = resp.response.data.CRM?.p_developers_collection?.items || [];
+                if (response_developers.length > 0) {
+                    // Use functional update to ensure you're working with the latest state
+                    setDevelopers(prevDevelopers => {
+                        const newDevelopers = [...prevDevelopers, ...response_developers];
+                        console.log('newDevelopers', newDevelopers);
+                        return newDevelopers;
+                    });
+                    // Check if we should fetch more developers
+                    if (response_developers.length === 500) {
+                        refetchDevelopers(length + 500); // Increment length for the next fetch
+                    }
+                } else {
+                    console.log("No more developers to fetch.");
+                }
+            } catch (error) {
+                console.error("Error refetching developers:", error);
+            }
+        };
+        const refetchEstates = async (length) => {
+            console.log('refetchEstates', length);
+            try {
+                const resp = await runServerless({ name: "fetchDropdownOptions", parameters: { dropdown: 'estates', length: length } });
+                console.log(resp.response)
+                const response_estates = resp.response.data.CRM?.p_estates_collection?.items || [];
+                if (response_estates.length > 0) {
+                    // Use functional update to ensure you're working with the latest state
+                    setEstates(prevEstates => {
+                        const newEstates = [...prevEstates, ...response_estates];
+                        console.log('newEstates', newEstates);
+                        return newEstates;
+                    });
+                    // Check if we should fetch more developers
+                    if (response_estates.length === 500) {
+                        refetchEstates(length + 500); // Increment length for the next fetch
+                    }
+                } else {
+                    console.log("No more estates to fetch.");
+                }
+            } catch (error) {
+                console.error("Error refetching estates:", error);
+            }
+        };
         const updateWhoisPayingOptionsFinal = () =>{
 
             if (hasBuyer2) {
@@ -181,7 +252,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                         {label: 'Buyer 2 - '+ buyer?.Buyer_2_Given_Name+" "+ buyer?.Buyer_2_Surname, value: 'Buyer 2'}
                     ])
             } else {
-                setDeposit({...deposit, Deposit_Who_Paying_Deposit: whoisPayingOptions[0].value})
+                handleDepositChange('Deposit_Who_Paying_Deposit', whoisPayingOptions[0].value);
                 setWhoisPayingOptionsFinal([{label: 'Buyer 1 - '+ buyer?.Buyer_1_Given_Name+" "+ buyer?.Buyer_1_Surname, value: 'Buyer 1'}])
             }
         }
@@ -209,13 +280,13 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                     if (depositItems.length === 0) {
                         setShowFirstButton(false)
                         setShowSecondButton(false)
-                        setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[0].value})
+                        // setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[0].value})
                         // setDepositTitle("Deposit Details for Initial Fee")
                     } else {
-                        setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[1].value})
-                        let initialDeposit = depositItems.find(item => item.deposit_type === 'Initial Fee');
-                        let prelimDeposit = depositItems.find(item => item.deposit_type === 'Preliminary Fee');
-                        let customizationFees = depositItems.filter(item => item.deposit_type === depositDescriptionOptions[2].value)
+                        // setDeposit({...deposit, Deposit_Deposit_Desc: depositDescriptionOptions[1].value})
+                        let initialDeposit = depositItems.find(item => item.deposit_description?.value === 'Initial Fee');
+                        let prelimDeposit = depositItems.find(item => item.deposit_description?.value === 'Preliminary Fee');
+                        let customizationFees = depositItems.filter(item => item.deposit_description?.value === depositDescriptionOptions[2].value)
                                                             .sort((a, b) => a.hs_createdate - b.hs_createdate);
                         console.log("")
                         console.log("")
@@ -290,14 +361,18 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
 
                 handleDevelopmentChange('Development_Developer', filterValuePerLabel(developers, currentDeposit.selected_developer));
                 handleDevelopmentChange('Development_Developer_Desc', currentDeposit.developer_description);
+
                 handleDevelopmentChange('Development_Estate', filterValuePerLabel(estates, currentDeposit.selected_estate));
                 handleDevelopmentChange('Development_Estate_Desc', currentDeposit.estate_description);
-                handleDevelopmentChange('Development_Display_Centre', filterValuePerLabel(displayCentre, currentDeposit.selected_display_centre));
+
+                handleDevelopmentChange('Development_Display_Centre', filterValuePerLabel(displayCentre,currentDeposit.selected_display_centre));
                 handleDevelopmentChange('Development_Display_Centre_Desc', currentDeposit.display_centre_description);
-                handleDevelopmentChange('Development_House_Type', filterValuePerLabel(houseTypes, currentDeposit.selected_house_type));
+
+                handleDevelopmentChange('Development_House_Type',  filterValuePerLabel(houseTypes, currentDeposit.selected_house_type));
                 handleDevelopmentChange('Development_House_Type_Desc', currentDeposit.house_type_description);
+
                 handleDevelopmentChange('Development_Size', currentDeposit.size);
-                handleDevelopmentChange('Development_Facade', filterValuePerLabel(facades, currentDeposit.selected_facade));
+                handleDevelopmentChange('Development_Facade', filterValuePerLabel(facades,currentDeposit.selected_facade));
                 handleDevelopmentChange('Development_Region', currentDeposit.region?.value);
 
                 handleDevelopmentChange('Development_Address_Is_Land_Titled', currentDeposit.is_the_land_titled_ ? 'Yes' : 'No');
@@ -311,8 +386,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 handleDevelopmentChange('Development_Address_State', currentDeposit.state?.value);
                 handleDevelopmentChange('Development_Address_Postcode', currentDeposit.postcode);
 
-                handleDevelopmentChange('Development_Address_Site_Start', unixToBase(currentDeposit.site_start));
-                handleDevelopmentChange('Development_Address_Site_Start_Text', currentDeposit.site_start);
+                handleDevelopmentChange('Development_Address_Site_Start', unixToBase(currentDeposit.site_start_));
+                handleDevelopmentChange('Development_Address_Site_Start_Text', currentDeposit.site_start_);
                 handleDevelopmentChange('Development_Address_Site_Land_Settlement', unixToBase(currentDeposit.land_settlement));
                 handleDevelopmentChange('Development_Address_Site_Land_Settlement_Text', currentDeposit.land_settlement);
 
@@ -332,16 +407,31 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 handleDepositChange('Deposit_Sales_Accept_Forecast_Text', currentDeposit.sales_accept_forecast);
                 handleDepositChange('Deposit_Comment', currentDeposit.comment);
 
-                const populateTeam = teams.filter(item => item.label === currentDeposit.selected_team);
-
+                console.log("teams")
+                console.log(teams)
+                const populateTeam = teams.filter((item) => {
+                    const itemLabel = item['name'];
+                    console.log(item)
+                    console.log(itemLabel)
+                    if(itemLabel && currentDeposit.selected_team){
+                        const smallLabel = (itemLabel).toLowerCase()
+                        console.log(smallLabel)
+                        console.log((currentDeposit.selected_team).toLowerCase())
+                        console.log(smallLabel === (currentDeposit.selected_team).toLowerCase())
+                        return smallLabel === (currentDeposit.selected_team).toLowerCase();
+                    }
+                });
+                console.log("populateTeam")
+                console.log(populateTeam)
                 if (populateTeam && populateTeam.length > 0) {
-                    setSystem({
-                        ...system,
-                        System_Team: populateTeam ? populateTeam[0].value : '',
+                    setSystem(prevSystem => ({
+                        ...prevSystem,
+                        System_Team: populateTeam ? populateTeam[0].hs_object_id : '',
                         System_Representative: currentDeposit.simonds_representative?.firstname + ' ' + currentDeposit.simonds_representative?.lastname,
-                    })
+                    }));
                 }
-                console.log("")
+                handleDepositChange('Deposit_Receipt_Number', currentDeposit.deposit_receipt_number);
+                handleDepositChange('name', currentDeposit.name);
                 setCurrentDepositLoaded(true);
             }
         }, [currentDeposit, optionsLoaded]);
@@ -437,11 +527,22 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             console.log(regionLabel)
 
             if (region) {
+                console.log("testsss")
                 console.log(region)
+                console.log(initialTeam)
 
-                const filteredTeams = initialTeam.filter(item => item.label.startsWith(regionLabel));
+                const filteredTeams = initialTeam.filter((item) => {
+                    const itemLabel = item['name'];
+                    console.log(itemLabel)
+                    if(itemLabel){
+                        const smallLabel = (itemLabel).toLowerCase()
+                        return smallLabel.startsWith((regionLabel).toLowerCase());
+                    }
+                });
+                console.log(filteredTeams)
                 setTeams(filteredTeams || []);
-                setSystem({...system, System_Team: ""})
+                setSystem(prevState => ({
+                    ...prevState, System_Team: ""}))
             }
         }
         const enterAddressManually = (checked) => {
@@ -855,9 +956,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 name="Development_Facade"
                                 placeholder=""
                                 required={true}
-                                options={facades.map(item => ({
-                                    label: item.name, value: item.hs_object_id
-                                }))}
+                                options={generateDropdownOptions(facades)
+                                //     facades.map(item => ({
+                                //     label: item.name, value: item.hs_object_id
+                                // }))
+                                }
                                 value={development.Development_Facade}
                                 onChange={(value) => setDevelopment({...development, Development_Facade: value})}
                             />
@@ -1205,7 +1308,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                             name="System_Team"
                             placeholder=""
                             required={true}
-                            options={teams}
+                            options={generateDropdownOptions(teams)}
                             value={system.System_Team}
                             onChange={(value) => setSystem({...system, System_Team: value})}
                         />
@@ -1487,6 +1590,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 user,
                 currentBuyer,
                 currentBuyerId,
+                currentDepositId,
+                crm,
             };
             console.log(submissionData)
             setSubmittedData(submissionData)
@@ -1501,6 +1606,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                     sendAlert({message: "Form submitted successfully!"});
                     handleAfterSubmitSuccess();
                 } else {
+                    console.log(response.message)
+                    console.log(response.errors)
                     //     sendAlert({message: "Failed to submit the form. Please try again."});
                 }
                 setSubmitLoading(false);
@@ -1724,7 +1831,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                             <Text>{currentDeposit.deposit_source?.value || '--'}</Text>
                         </DescriptionListItem>
                         <DescriptionListItem label="Deposit Description">
-                            <Text>{currentDeposit.deposit_type || '--'}</Text>
+                            <Text>{currentDeposit.deposit_description?.value || '--'}</Text>
                         </DescriptionListItem>
                         <DescriptionListItem label="Package Type">
                             <Text>{currentDeposit.package_type?.value || '--'}</Text>
@@ -1791,7 +1898,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         );
         const handleChangeDDOptions = (value) => {
             if (value === 'Initial Fee') {
-                let deposit = dealDeposits.filter(item => item.deposit_type === 'Initial Fee');
+                let deposit = dealDeposits.filter(item => item.deposit_description?.value === 'Initial Fee');
                 if (deposit.length > 0) {
                     deposit = deposit[0];
                 }
@@ -1800,7 +1907,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             if (value === 'Preliminary Fee') {
                 setCurrentDeposit(null);
                 if (dealDeposits.length > 1) {
-                    let deposit = dealDeposits.filter(item => item.deposit_type === 'Preliminary Fee');
+                    let deposit = dealDeposits.filter(item => item.deposit_description?.value === 'Preliminary Fee');
                     if (deposit.length > 0) {
                         deposit = deposit[0];
                     }
@@ -1824,14 +1931,17 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
     const editInitialFee = () => {
             setDepositTitle("Deposit Details for Initial Fee")
             if (initialDepositFee) {
-                handleDepositChange('Deposit_Object_Id', currentDeposit.hs_object_id);
+                setCurrentDepositId(initialDepositFee.hs_object_id);
                 console.log('Actual edit initial')
                 console.log(initialDepositFee)
                 setCurrentDeposit(initialDepositFee);
-                handleDepositChange('Deposit_Amount_Paid', currentDeposit.amount_paid);
-                handleDepositChange('Deposit_Amount_Paid_Print', currentDeposit.amount_paid__print_);
+                handleDepositChange('Deposit_Amount_Paid', initialDepositFee.amount_paid);
+                handleDepositChange('Deposit_Amount_Paid_Print', initialDepositFee.amount_paid__print_);
             }else{
-                handleDepositChange('Deposit_Object_Id', null);
+                handleDepositChange('name', createName())
+                setCurrentDepositId(null);
+                handleDepositChange('Deposit_Amount_Paid', '');
+                handleDepositChange('Deposit_Amount_Paid_Print', '');
             }
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[0].value);
             setShowForm(true)
@@ -1841,17 +1951,20 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             setDepositTitle("Deposit Details for Preliminary Fee")
             console.log("Deposit Details for Preliminary Fee")
             if (prelimDepositFee) {
-                handleDepositChange('Deposit_Object_Id', currentDeposit.hs_object_id);
+                setCurrentDepositId(prelimDepositFee.hs_object_id);
                 console.log('Actual edit prelim')
-                console.log(initialDepositFee)
+                console.log(prelimDepositFee)
                 setCurrentDeposit(prelimDepositFee);
+                handleDepositChange('Deposit_Object_Id', prelimDepositFee.hs_object_id);
                 handleDepositChange('Deposit_Amount_Paid', '');
                 handleDepositChange('Deposit_Amount_Paid_Print', '');
             } else {
-                handleDepositChange('Deposit_Object_Id', null);
+                setCurrentDepositId(null);
                 console.log('create prelim from initial')
                 console.log(initialDepositFee)
                 setCurrentDeposit(initialDepositFee);
+                handleDepositChange('name', createName())
+                handleDepositChange('Name', '');
                 handleDepositChange('Deposit_Amount_Paid', '');
                 handleDepositChange('Deposit_Amount_Paid_Print', '');
             }
@@ -1866,28 +1979,33 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             if (customizationFees.length > 0) {
                 const lastFee = customizationFees[customizationFees.length - 1];
                 setCurrentDeposit(lastFee);
+                handleDepositChange('Deposit_Amount_Paid', '');
+                handleDepositChange('Deposit_Amount_Paid_Print', '');
                 console.log(lastFee)
                 console.log("from custom fee")
             }else if(prelimDepositFee){
                 console.log(prelimDepositFee)
+                handleDepositChange('Deposit_Amount_Paid', '');
+                handleDepositChange('Deposit_Amount_Paid_Print', '');
                 console.log("from prelim")
                 setCurrentDeposit(prelimDepositFee);
             }else{
 
             }
-            handleDepositChange('Deposit_Object_Id', null);
-            handleDepositChange('Deposit_Amount_Paid', '');
-            handleDepositChange('Deposit_Amount_Paid_Print', '');
+            handleDepositChange('name', createName())
+            setCurrentDepositId(null);
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[2].value);
             setShowForm(true)
             updateWhoisPayingOptionsFinal();
+            handleDepositChange('Deposit_Amount_Paid', '');
+            handleDepositChange('Deposit_Amount_Paid_Print', '');
         }
          const editCustomFee = (customFee) => {
             setDepositTitle("EDIT Deposit Details for Customisation Fee")
             console.log("EDIT Deposit Details for Customisation Fee")
             console.log(customFee)
             if (customFee) {
-                handleDepositChange('Deposit_Object_Id', customFee.hs_object_id);
+                setCurrentDepositId(customFee.hs_object_id);
                 setCurrentDeposit(customFee);
                 handleDepositChange('Deposit_Amount_Paid', customFee.amount_paid);
                 handleDepositChange('Deposit_Amount_Paid_Print', customFee.amount_paid__print_);
@@ -1896,6 +2014,12 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             setShowForm(true)
         }
 
+        const createName = () =>{
+            if(currentBuyerId && dealDeposits ){
+                return (currentBuyerId).toString() +  (dealDeposits.length + 1).toString()
+            }
+            return (context.crm.objectId).toString() + 1
+        }
         const dynamicButtonToShow = () => {
                 if(initialDepositFee === null){
                     return <Button

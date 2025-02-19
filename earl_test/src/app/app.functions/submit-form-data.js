@@ -1,4 +1,6 @@
 const hubspot = require('@hubspot/api-client');
+const axios = require('axios');
+
 
 const hubspotClient = new hubspot.Client({
     accessToken: process.env['PRIVATE_APP_ACCESS_TOKEN'],
@@ -13,7 +15,9 @@ exports.main = async (context = {}) => {
         system,
         user,
         currentBuyer,
-        currentBuyerId
+        currentBuyerId,
+        currentDepositId,
+        crm
     } = context.parameters;
 
 
@@ -28,7 +32,9 @@ exports.main = async (context = {}) => {
             system,
             user,
             currentBuyer,
-            currentBuyerId
+            currentBuyerId,
+            currentDepositId,
+            crm
         });
 
         return {newDeposit}
@@ -60,15 +66,21 @@ async function getOwner(user){
 }
 
 // Function to create a line item and associate with quote
-async function createDeposit({ buyer, development, deposit, system, user, currentBuyer, currentBuyerId }) {
+async function createDeposit({ buyer, development, deposit, system, user, currentBuyer, currentBuyerId, currentDepositId, crm}) {
 
     const owner = await getOwner(user)
     const ownerId = owner.id;
+
+    var name = deposit.name
+
+    if (!name) {
+        name = (crm.objectId).toString() + 1; // Append the incremented last digit
+    }
     const request = {
         properties: {
-            name: buyer.Buyer_1_Given_Name+ " " + buyer.Buyer_1_Surname+ " - "+ deposit.Deposit_Deposit_Desc,
+            name: name,
+            deposit_receipt_number: name,
             // hubspot_deal_id: currentBuyerId,
-
             given_name: buyer.Buyer_1_Given_Name,
             buyer_1_surname: buyer.Buyer_1_Surname,
             buyer_1_email: buyer.Buyer_1_Email,
@@ -114,17 +126,17 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             state: development.Development_Address_State,
             postcode:development.Development_Address_Postcode,
 
-            site_start: (development.Development_Address_Site_Start_Text),
+            site_start_: (development.Development_Address_Site_Start_Text),
             land_settlement: (development.Development_Address_Site_Land_Settlement_Text),
 
             is_the_deposit_from_buyer_1_or_buyer_2_:deposit.Deposit_Who_Paying_Deposit,
             range:deposit.Deposit_Range,
             // deposit_source:deposit.Deposit_Deposit_Source,
-            deposit_type: deposit.Deposit_Deposit_Desc,
+            // deposit_type: deposit.Deposit_Deposit_Desc,
             deposit_description: deposit.Deposit_Deposit_Desc,
             package_type:deposit.Deposit_Package_Type,
             context:deposit.Deposit_Context,
-            sale_type:deposit.Sale_Type,
+            sale_type: parseInt(deposit.Sale_Type, 10),
             amount_paid:deposit.Deposit_Amount_Paid,
             amount_paid__print_:deposit.Deposit_Amount_Paid_Print,
             payment_method:deposit.Deposit_Payment_Method,
@@ -146,49 +158,175 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
                 types: [
                     {
                         associationCategory: 'USER_DEFINED',
-                        associationTypeId: 133,
+                        associationTypeId: 129,
                     },
                 ],
             },
         ],
     };
-    let createdDeposit
     // return request;
-    if(deposit.Deposit_Object_Id){
-        createdDeposit =  await hubspotClient.crm.objects.basicApi.update('2-35849675', deposit.Deposit_Object_Id, request);
+    let createdDeposit
+
+    if(currentDepositId){
+        createdDeposit =  await hubspotClient.crm.objects.basicApi.update('2-35672036', currentDepositId, request);
     }else{
-        createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35849675', request);
+        createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35672036', request);
     }
 
-    await createAssociates({createdDeposit, buyer, development, deposit, system, user, currentBuyer, currentBuyerId });
-
-    return createdDeposit;
+    const  associates = await createAssociates({createdDeposit, buyer, development, deposit, system, user, currentBuyer, currentBuyerId });
+    // const associations = await fetchAssociations('deposits', createdDeposit.id, PRIVATE_APP_TOKEN);
+    return [createdDeposit, associates];
 }
 
 async function createAssociates({createdDeposit, buyer, development, deposit, system, user, currentBuyer, currentBuyerId }) {
 
     const depositId = createdDeposit.id
-    const depositType = '2-35849675'
+    const depositType = '2-35672036'
     const associatesTypes = [
-        {name:'deposit_to_developers', typeId: '2-35849673', value: development.Development_Developer === 'unknown'?null:development.Development_Developer},
-        {name:'deposit_to_display_centre', typeId: '2-35849679', value: development.Development_Display_Centre === 'unknown'?null:development.Development_Display_Centre},
-        {name:'deposit_to_estates', typeId: '2-35849678', value: development.Development_Estate === 'unknown'?null:development.Development_Estate},
-        {name:'deposit_to_facades', typeId: '2-35849680', value: development.Development_Facade === 'unknown'?null:development.Development_Facade},
-        {name:'deposit_to_house_types', typeId: '2-35849682', value: development.Development_House_Type === 'unknown'?null:development.Development_House_Type},
-        {name:'deposit_to_promotion_types', typeId: '2-35849677', value: deposit.Deposit_Promotion_Type === 'unknown'?null:deposit.Deposit_Promotion_Type},
-        // {name:'deposit_to_regions', typeId: '2-35849671', value: development.Development_Region},
-        {name:'deposit_to_teams', typeId: '2-35849672', value: system.System_Team},
+        {name:'deposit_to_developers', typeId: '2-35663617', value: development.Development_Developer, toObjectType:'Developers' },
+        {name:'deposit_to_display_centre', typeId: '2-35672392', value: development.Development_Display_Centre, toObjectType:'Display_centre' },
+        {name:'deposit_to_estates', typeId: '2-35663634', value: development.Development_Estate, toObjectType:'estates' },
+        {name:'deposit_to_facades', typeId: '2-35663846', value: development.Development_Facade, toObjectType:'facades' },
+        {name:'deposit_to_house_types', typeId: '2-35663812', value: development.Development_House_Type, toObjectType:'house_types' },
+        {name:'deposit_to_promotion_types', typeId: '2-35663589', value: deposit.Deposit_Promotion_Type, toObjectType:'promotion_types' },
+        {name:'deposit_to_teams', typeId: '2-35664873', value: system.System_Team, toObjectType:'teams' },
+        // {name:'deposit_to_teams', typeId: '2-35672036', value: system.System_Team},
     ];
-    associatesTypes.map(async (associatesType) => {
-        if(associatesType.value){
-            await hubspotClient.crm.objects.associationsApi.create(
-                depositType,
+    let associates = [];
+    await Promise.all(associatesTypes.map(async (associatesType) => {
+        let associateFetch = null;
+        let associateCreated = null;
+
+        if (associatesType.value) {
+            // Remove the association
+            associateFetch = await removeAssociation(
                 depositId,
+                depositType,
                 associatesType.typeId,
-                associatesType.value,
-                associatesType.name
+                associatesType.name,
+                associatesType.value
             );
+
+            // Uncomment and use this if you want to create an association
+            associateCreated = await createAssociation(
+                depositId,
+                depositType,
+                associatesType.typeId,
+                associatesType.name,
+                associatesType.value
+            );
+
+            // Create the association using the HubSpot client
+            // await hubspotClient.crm.objects.associationsApi.create(
+            //     depositType,
+            //     depositId,
+            //     associatesType.typeId,
+            //     associatesType.value,
+            //     associatesType.name
+            // );
         }
 
-    })
+        // Push the result into the associates array
+        associates.push({
+            [associatesType.name]: [
+                associatesType,
+                associateFetch,
+                associateCreated
+            ]
+        });
+    }));
+
+    return associates;
 }
+const fetchAssociations = async (objectType, fromObjectType, toObjectType, token) => {
+    const url = `https://api.hubapi.com/crm/v4/associations/${fromObjectType}/${toObjectType}/batch/read`
+    const requestBody = {
+        inputs: [
+            {
+                id: objectType
+            }
+        ]
+    };
+
+    try {
+        const response = await axios.post(url, requestBody,{
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return response.data.results.map(result =>
+            result.to.map(association => association.toObjectId)
+        ).flat(); // Return an array of toObjectIds
+    } catch (error) {
+        console.error('Error fetching associations:', error.response ? error.response.data : error.message);
+        return [];
+    }
+};
+const removeAssociation = async (depositId, depositType, associatesTypeId, associatesTypeName, associationTypeValue) => {
+    const token = process.env.PRIVATE_APP_ACCESS_TOKEN;
+    const associates = await fetchAssociations(depositId, depositType, associatesTypeId, token)
+
+    if(!associates){
+        return null;
+    }
+    const url = `https://api.hubapi.com/crm/v4/associations/${depositType}/${associatesTypeId}/batch/archive`
+    const requestBody = {
+        inputs: [
+            {
+                from: {
+                    id: depositId
+                },
+                to: associates.map(id => ({ id }))
+            }
+        ]
+    };
+    try {
+        await axios.post(url, requestBody,{
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return associates;
+    } catch (error) {
+        return error.response;
+        console.error('Error fetching associations:', error.response ? error.response.data : error.message);
+        return [];
+    }
+};
+
+const createAssociation = async (depositId, depositType, associatesTypeId, associatesTypeName, associationTypeValue) => {
+    const token = process.env.PRIVATE_APP_ACCESS_TOKEN;
+
+    const url = `https://api.hubapi.com/crm/v3/associations/${depositType}/${associatesTypeId}/batch/create`
+    const requestBody = {
+        inputs: [
+            {
+                from: {
+                    id: depositId
+                },
+                to: {
+                    id: associationTypeValue
+                },
+                type: associatesTypeName
+            }
+        ]
+    };
+    try {
+        const response = await axios.post(url, requestBody,{
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return response.status;
+    } catch (error) {
+        return error.response;
+        console.error('Error fetching associations:', error.response ? error.response.data : error.message);
+        return [];
+    }
+};

@@ -76,10 +76,10 @@ export const generateDropdownOptions = (options, addUnknown = false, label = 'na
 
     if (addUnknown) {
         // Check if '[UNKNOWN]' option is already present
-        const unknownOption = mapOptions.find(option => option.label === '[UNKNOWN]');
+        const unknownOption = mapOptions.find(option => option.label === '[Unknown]');
 
         if (!unknownOption) {
-            mapOptions = [{label: '[Unknown]', value: 'unknown'}, ...mapOptions];
+            mapOptions = [{label: '[Unknown]', value: '[Unknown]'}, ...mapOptions];
         }
     }
 
