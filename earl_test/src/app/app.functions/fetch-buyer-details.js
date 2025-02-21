@@ -94,6 +94,7 @@ const fetchBuyerDetails = (token, hs_object_id) => {
             estate_description
             expected_titles
             facade__text_
+            facade_description
             final_quote_amount
             finalised_refund_request_count
             fixed_site_costs_

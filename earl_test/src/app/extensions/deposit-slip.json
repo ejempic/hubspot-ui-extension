@@ -1,8 +1,8 @@
 {
   "type": "crm-card",
   "data": {
-    "title": "Deposit Slip",
-    "uid": "simonds_deposit_card_copy",
+    "title": "Deposit Slip Test",
+    "uid": "simonds_deposit_card_test",
     "location": "crm.record.tab",
     "module": {
       "file": "DepositSlip.jsx"

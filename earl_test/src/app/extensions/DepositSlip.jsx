@@ -124,9 +124,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         const [totalDepositFee, setTotalDepositFee] = useState('--');
         const [whoisPayingOptionsFinal, setWhoisPayingOptionsFinal] = useState(whoisPayingOptions)
         const [saleTypeOptions, setSaleTypeOptions] = useState(null);
+
         const handleNumberChange = (value) => {
-            handleDepositChange("Deposit_Amount_Paid", value)
-            handleDepositChange("Deposit_Amount_Paid_Print", capitalizeWords(toWords(value)))
+            handleDepositChange("Deposit_Amount_Paid", value);
+            handleDepositChange("Deposit_Amount_Paid_Print", `${capitalizeWords(toWords(value))} Dollars`);
         };
 
         function capitalizeWords(str) {
@@ -183,6 +184,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             console.log("user")
             console.log(user)
             console.log(context)
+            updateWhoisPayingOptionsFinal();
         }, []);
 
         useEffect(() => {
@@ -373,6 +375,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
 
                 handleDevelopmentChange('Development_Size', currentDeposit.size);
                 handleDevelopmentChange('Development_Facade', filterValuePerLabel(facades,currentDeposit.selected_facade));
+                handleDevelopmentChange('Development_Facade_Desc', currentDeposit.facade_description);
+
+
                 handleDevelopmentChange('Development_Region', currentDeposit.region?.value);
 
                 handleDevelopmentChange('Development_Address_Is_Land_Titled', currentDeposit.is_the_land_titled_ ? 'Yes' : 'No');
@@ -399,7 +404,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 handleDepositChange('Deposit_Context', filterValuePerLabel(contextOptions, currentDeposit.context?.value, 'value', 'value'));
                 handleDepositChange('Sale_Type', filterValuePerLabel(saleTypeOptions, currentDeposit.sale_type?.value, 'value', 'value'));
                 handleDepositChange('Deposit_Amount_Paid', currentDeposit.amount_paid);
-                handleDepositChange('Deposit_Amount_Paid_Print', currentDeposit.amount_paid__print_);
+                handleDepositChange('Deposit_Amount_Paid_Print', `${addDollars(currentDeposit.amount_paid__print_)}`);
                 handleDepositChange('Deposit_Payment_Method', currentDeposit.payment_method?.value);
                 handleDepositChange('Deposit_Payment_Terminal_Number', currentDeposit.terminal_number);
                 handleDepositChange('Deposit_Promotion_Type', filterValuePerLabel(promotionTypes, currentDeposit.selected_promotion_type));
@@ -615,13 +620,16 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 });
                 setIsAddressSelectedLoading(false);
                 const addressDetails = response.result;
+                console.log(addressDetails.address_components)
+                const subpremise = addressDetails.address_components.find((comp) => comp.types.includes("subpremise"))?.long_name;
                 const streetNumber = addressDetails.address_components.find((comp) => comp.types.includes("street_number"))?.long_name;
+                const combinedStreetNumber = subpremise ? `${subpremise}/${streetNumber}` : streetNumber;
                 const streetName = addressDetails.address_components.find((comp) => comp.types.includes("route"))?.long_name;
                 const suburb = addressDetails.address_components.find((comp) => comp.types.includes("locality"))?.long_name;
                 const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.short_name;
                 const postcode = addressDetails.address_components.find((comp) => comp.types.includes("postal_code"))?.long_name;
 
-                handleBuyerChange('Buyer_Info_Street_Number', streetNumber || "")
+                handleBuyerChange('Buyer_Info_Street_Number', combinedStreetNumber || "")
                 handleBuyerChange('Buyer_Info_Street_Name', streetName || "")
                 handleBuyerChange('Buyer_Info_Suburb', suburb || "")
                 handleBuyerChange('Buyer_Info_State', state || "")
@@ -962,8 +970,19 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 // }))
                                 }
                                 value={development.Development_Facade}
-                                onChange={(value) => setDevelopment({...development, Development_Facade: value})}
+                                onChange={(value) => handleDevelopmentChange("Development_Facade", value)}
                             />
+
+                            {dropdownValueIsUnknown(filterLabelPerValue(generateDropdownOptions(facades), development.Development_Facade)) && (
+                                <Input
+                                    name="Development_Facade_Desc"
+                                    label="Facade Description"
+                                    placeholder=""
+                                    required={true}
+                                    value={development.Development_Facade_Desc}
+                                    onChange={(value) => handleDevelopmentChange("Development_Facade_Desc", value)}
+                                />)}
+
                             <Select
                                 label="House Type"
                                 name="Development_House_Type"
@@ -1936,7 +1955,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 console.log(initialDepositFee)
                 setCurrentDeposit(initialDepositFee);
                 handleDepositChange('Deposit_Amount_Paid', initialDepositFee.amount_paid);
-                handleDepositChange('Deposit_Amount_Paid_Print', initialDepositFee.amount_paid__print_);
+                handleDepositChange('Deposit_Amount_Paid_Print', `${addDollars(initialDepositFee.amount_paid__print_)}`);
             }else{
                 handleDepositChange('name', createName())
                 setCurrentDepositId(null);
@@ -1956,8 +1975,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 console.log(prelimDepositFee)
                 setCurrentDeposit(prelimDepositFee);
                 handleDepositChange('Deposit_Object_Id', prelimDepositFee.hs_object_id);
-                handleDepositChange('Deposit_Amount_Paid', '');
-                handleDepositChange('Deposit_Amount_Paid_Print', '');
+                handleDepositChange('Deposit_Amount_Paid', prelimDepositFee.amount_paid);
+                handleDepositChange('Deposit_Amount_Paid_Print', `${addDollars(prelimDepositFee.amount_paid__print_)}`);
             } else {
                 setCurrentDepositId(null);
                 console.log('create prelim from initial')
@@ -1971,6 +1990,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[1].value);
             setShowForm(true)
             updateWhoisPayingOptionsFinal();
+        }
+
+        function addDollars(text){
+            if (text.endsWith("Dollars")) {
+                return text;
+            } else {
+                return `${text} Dollars`;
+            }
         }
 
         const addCustomFee = () => {
@@ -2008,7 +2035,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 setCurrentDepositId(customFee.hs_object_id);
                 setCurrentDeposit(customFee);
                 handleDepositChange('Deposit_Amount_Paid', customFee.amount_paid);
-                handleDepositChange('Deposit_Amount_Paid_Print', customFee.amount_paid__print_);
+                handleDepositChange('Deposit_Amount_Paid_Print', `${addDollars(customFee.amount_paid__print_)}`);
             }
             handleDepositChange('Deposit_Deposit_Desc', depositDescriptionOptions[2].value);
             setShowForm(true)

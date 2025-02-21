@@ -13,6 +13,7 @@ const useDevelopment = () => {
         Development_House_Type_Desc: '',
         Development_Size: '',
         Development_Facade: '',
+        Development_Facade_Desc: '',
         Development_Region: '',
 
         Development_Address_Is_Land_Titled: '',

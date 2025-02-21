@@ -112,6 +112,8 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             display_centre_description: development.Development_Display_Centre_Desc,
             // selected_house_type: development.Development_House_Type,
             house_type_description: development.Development_House_Type_Desc,
+
+            facade_description: development.Development_Facade_Desc,
             size: development.Development_Size,
             // selected_facade: development.Development_Facade,
             region: development.Development_Region,
