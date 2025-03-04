@@ -11,7 +11,7 @@ exports.main = async (context = {}) => {
         } else {
             if (suburb) {
 
-                const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${searchValue}&key=${googleMapsAPIKey}&types=locality&components=country:au`;
+                const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${searchValue}&key=${googleMapsAPIKey}&components=country:au`;
                 const response = await axios.get(url);
                 const predictions = response.data.predictions;
 
@@ -36,8 +36,12 @@ exports.main = async (context = {}) => {
                             postcode = component.long_name;
                         }
                     });
+                    if(!postcode){
+                        return {};
+                    }
 
                     return {
+                        components: result,
                         // description: `${prediction.description} (${suburb || ''}, ${state || ''}, ${postcode || ''})`,
                         description: `${suburb || ''}, ${state || ''}, ${postcode || ''}`,
                         place_id: placeId,

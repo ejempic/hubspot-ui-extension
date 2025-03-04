@@ -114,7 +114,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             contact_email: "",
             contact_first_name: "",
             contact_last_name: "",
-            contact_phone: "null"
+            contact_phone: null,
+            associated_contact_mobile: null
         });
         const [dealDeposits, setDealDeposits] = useState(null);
         const [currentDeposit, setCurrentDeposit] = useState(null);
@@ -501,7 +502,18 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             handleBuyerChange('Buyer_1_Surname', currentBuyer.contact_last_name);
             handleBuyerChange('Buyer_1_Email_Not_Provided', currentBuyer.contact_email === '');
             handleBuyerChange('Buyer_1_Email', currentBuyer.contact_email);
-            handleBuyerChange('Buyer_1_Mobile', currentBuyer.contact_phone);
+            let phoneToUse =currentBuyer.contact_phone;
+            if(currentBuyer.contact_phone == null){
+                if(currentBuyer.associated_contact_mobile == null){
+                    phoneToUse = null;
+                }else{
+                    phoneToUse = currentBuyer.associated_contact_mobile;
+
+                }
+            }else{
+                phoneToUse = currentBuyer.contact_phone
+            }
+            handleBuyerChange('Buyer_1_Mobile', phoneToUse);
         }, [currentBuyer]);
 
         const {buyer, setBuyer, handleBuyerChange} = useBuyer();
@@ -1101,6 +1113,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 value={development.Development_Address_Lot_No}
                                 required
                                 onChange={(val) => handleDevelopmentChange("Development_Address_Lot_No", val)}
+                            />
+
+                            <Input
+                                name="Development_Address_Street_Name"
+                                label="Street Name"
+                                value={development.Development_Address_Street_Name}
+                                required
+                                onChange={(val) => handleDevelopmentChange("Development_Address_Street_Name", val)}
                             />
 
                             <Input

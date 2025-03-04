@@ -26,6 +26,7 @@ const fetchBuyerDetails = (token, hs_object_id) => {
       contact_email
       contact_id
       contact_phone
+      associated_contact_mobile
       associations {
         p_deposit_collection__deal_to_deposit(orderBy: hubspot_deal_id__desc) {
           items {
