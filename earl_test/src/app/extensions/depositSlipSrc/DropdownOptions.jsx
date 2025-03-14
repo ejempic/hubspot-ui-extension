@@ -31,12 +31,14 @@ export const depositDescriptionOptions = [
 export const packageTypeOptions = [
     {label: 'Fixed Site Costs', value: 'Fixed Site Costs'},
     {label: 'Site Cost Allowance', value: 'Site Cost Allowance'},
-    {label: 'Runway Package', value: 'Runway Package'},
+    // {label: 'Runway Package', value: 'Runway Package'},
     {label: 'Exclusive Hold', value: 'Exclusive Hold'},
     {label: 'Simonds Investment Service', value: 'Simonds Investment Service'},
     {label: 'Community Housing', value: 'Community Housing'},
     {label: 'Government Housing', value: 'Government Housing'},
     {label: 'Precinct', value: 'Precinct'},
+    {label: 'House & Land Package', value: 'House & Land Package'},
+    {label: 'Knockdown and Rebuild', value: 'Knockdown and Rebuild'},
 ];
 export const contextOptions = [
     {label: '[No Specific Identification]', value: '[No Specific Identification]'},

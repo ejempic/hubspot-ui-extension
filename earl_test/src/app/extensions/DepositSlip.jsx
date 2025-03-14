@@ -503,15 +503,14 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             handleBuyerChange('Buyer_1_Email_Not_Provided', currentBuyer.contact_email === '');
             handleBuyerChange('Buyer_1_Email', currentBuyer.contact_email);
             let phoneToUse =currentBuyer.contact_phone;
-            if(currentBuyer.contact_phone == null){
-                if(currentBuyer.associated_contact_mobile == null){
-                    phoneToUse = null;
+            if(currentBuyer.associated_contact_mobile == null || currentBuyer.associated_contact_mobile == ''){
+                if(currentBuyer.contact_phone == null || currentBuyer.contact_phone == ''){
+                    phoneToUse = '';
                 }else{
-                    phoneToUse = currentBuyer.associated_contact_mobile;
-
+                    phoneToUse = currentBuyer.contact_phone;
                 }
             }else{
-                phoneToUse = currentBuyer.contact_phone
+                phoneToUse = currentBuyer.associated_contact_mobile
             }
             handleBuyerChange('Buyer_1_Mobile', phoneToUse);
         }, [currentBuyer]);
