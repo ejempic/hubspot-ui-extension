@@ -392,8 +392,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 handleDevelopmentChange('Development_Address_State', currentDeposit.state?.value);
                 handleDevelopmentChange('Development_Address_Postcode', currentDeposit.postcode);
 
-                handleDevelopmentChange('Development_Address_Site_Start', unixToBase(currentDeposit.site_start_));
-                handleDevelopmentChange('Development_Address_Site_Start_Text', currentDeposit.site_start_);
+                handleDevelopmentChange('Development_Address_Site_Start', formattedToBase(currentDeposit.site_start__text_));
+                handleDevelopmentChange('Development_Address_Site_Start_Text', currentDeposit.site_start__text_);
                 handleDevelopmentChange('Development_Address_Site_Land_Settlement', unixToBase(currentDeposit.land_settlement));
                 handleDevelopmentChange('Development_Address_Site_Land_Settlement_Text', currentDeposit.land_settlement);
 
@@ -1174,9 +1174,9 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 name="Development_Address_Site_Start"
                                 onChange={(val) => {
                                     handleDevelopmentChange("Development_Address_Site_Start", val)
-                                    handleDevelopmentChange("Development_Address_Site_Start_Text", baseToUnix(val))
+                                    handleDevelopmentChange("Development_Address_Site_Start_Text", baseToFormatted(val))
                                 }}
-                                value={development.Development_Address_Site_Start}
+                                value={development.Development_Address_Site_Start || null}
                                 format="L"
                             />
                             {/*<Text>{development.Development_Address_Site_Start}</Text>*/}
@@ -1187,7 +1187,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     handleDevelopmentChange("Development_Address_Site_Land_Settlement", val)
                                     handleDevelopmentChange("Development_Address_Site_Land_Settlement_Text", baseToUnix(val))
                                 }}
-                                value={development.Development_Address_Site_Land_Settlement}
+                                value={development.Development_Address_Site_Land_Settlement || null}
                                 format="L"
                             />
                         </Tile>
@@ -1319,7 +1319,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 handleDepositChange("Deposit_Sales_Accept_Forecast", val)
                                 handleDepositChange("Deposit_Sales_Accept_Forecast_Text", baseToUnix(val))
                             }}
-                            value={deposit.Deposit_Sales_Accept_Forecast}
+                            value={deposit.Deposit_Sales_Accept_Forecast || null}
                             format="L"
                         />
                         <Input
@@ -1418,9 +1418,44 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
             return {...baseDate, formattedDate: formattedDate}
         }
+        function formattedToBase(formattedDate) {
+            if (!formattedDate) {
+                return '';
+            }
+
+            // Split the input formatted date into day, month, and year
+            const [day, month, year] = formattedDate.split('/').map(num => parseInt(num, 10));
+
+            // Create a Date object (Note: months in JavaScript are 0-indexed, so we subtract 1 from the month)
+            const date = new Date(Date.UTC(year, month - 1, day));
+
+            // Prepare the base date
+            const baseDate = {
+                year: date.getUTCFullYear(),
+                month: date.getUTCMonth(),
+                date: date.getUTCDate()
+            };
+
+            // Format the date to "DD/MM/YYYY"
+            const formattedOutput = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
+
+            // Return the base date and formatted date
+            return {...baseDate, formattedDate: formattedOutput};
+        }
+
+        function baseToFormatted(baseDate) {
+            if (!baseDate || !baseDate.year || !baseDate.month || !baseDate.date) {
+                return '';
+            }
+
+            // Format the base date to "DD/MM/YYYY"
+            const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
+
+            return formattedDate;
+        }
 
 
-        const fields = [
+    const fields = [
             {
                 name: "Buyer_1_Given_Name",
                 label: "Given Name",
@@ -2012,10 +2047,15 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         }
 
         function addDollars(text){
-            if (text.endsWith("Dollars")) {
-                return text;
-            } else {
-                return `${text} Dollars`;
+            if(text){
+
+                if (text.endsWith("Dollars") ) {
+                    return text;
+                } else if (text.endsWith("dollars") ) {
+                    return text;
+                } else {
+                    return `${text} Dollars`;
+                }
             }
         }
 
