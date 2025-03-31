@@ -5,7 +5,7 @@ exports.main = async (context = {}) => {
 
     try {
         if (placeId) {
-            const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${googleMapsAPIKey}`;
+            const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${googleMapsAPIKey}&types=address&components`;
             const response = await axios.get(url);
             return await response.data;
         } else {

@@ -77,6 +77,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
         name = (crm.objectId).toString() + 1; // Append the incremented last digit
     }
     const request = {
+
         properties: {
             name: name,
             deposit_receipt_number: name,
@@ -150,7 +151,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
 
             // selected_team:system.System_Team,
             // simonds_representative_manager__text_: user.firstName+ ' '+user.lastName,
-            simonds_representative: parseInt(ownerId),
+            // simonds_representative: parseInt(ownerId),
             // simonds_representative: JSON.stringify({owner_id: parseInt(ownerId),firstname: user.firstName,email: user.email,lastname: user.lastName}),
         },
         associations: [
@@ -173,6 +174,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
     if(currentDepositId){
         createdDeposit =  await hubspotClient.crm.objects.basicApi.update('2-35672036', currentDepositId, request);
     }else{
+        request.properties.simonds_representative = parseInt(ownerId);
         createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35672036', request);
     }
 

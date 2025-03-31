@@ -199,6 +199,21 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 refetchEstates(500);
             }
         }, [estates]);
+
+        const sortUpUnknownDeveloper = (prevDevelopers, response_developers) =>{
+            const unknownDeveloper = prevDevelopers.find(dev => dev.name === "[Unknown]");
+
+            // Remove existing "[Unknown]" from the list to avoid duplicates
+            const filteredDevelopers = prevDevelopers.filter(dev => dev.name !== "[Unknown]");
+
+            // Prepend the existing "[Unknown]" if found, otherwise keep the list as is
+            const newDevelopers = unknownDeveloper
+                ? [unknownDeveloper, ...filteredDevelopers, ...response_developers] // Use existing "[Unknown]"
+                : [...filteredDevelopers, ...response_developers]; // No "[Unknown]" found, just update list
+
+            console.log('newDevelopers', newDevelopers);
+            return newDevelopers;
+        }
         const refetchDevelopers = async (length) => {
             console.log('refetchDevelopers', length);
             try {
@@ -209,7 +224,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                     setDevelopers(prevDevelopers => {
                         const newDevelopers = [...prevDevelopers, ...response_developers];
                         console.log('newDevelopers', newDevelopers);
-                        return newDevelopers;
+                        return sortUpUnknownDeveloper(newDevelopers, response_developers)
+                        // return newDevelopers;
                     });
                     // Check if we should fetch more developers
                     if (response_developers.length === 500) {
@@ -233,6 +249,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                     setEstates(prevEstates => {
                         const newEstates = [...prevEstates, ...response_estates];
                         console.log('newEstates', newEstates);
+                        return sortUpUnknownDeveloper(newEstates, response_estates)
                         return newEstates;
                     });
                     // Check if we should fetch more developers
@@ -339,8 +356,8 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 setShowDevAddressFields(true);
                 setDevelopmentShow(true);
                 setDepositShow(true);
-                handleBuyerChange('Buyer_1_Given_Name', currentDeposit.given_name);
-                handleBuyerChange('Buyer_1_Surname', currentDeposit.buyer_1_surname);
+                handleBuyerChange('Buyer_1_Given_Name', cleanName(currentDeposit.given_name));
+                handleBuyerChange('Buyer_1_Surname', cleanName(currentDeposit.buyer_1_surname));
                 handleBuyerChange('Buyer_1_Email_Not_Provided', currentDeposit.buyer_1_email_not_provided === '');
                 handleBuyerChange('Buyer_1_Email', currentDeposit.buyer_1_email);
                 handleBuyerChange('Buyer_1_Mobile', currentDeposit.buyer_1_mobile);
@@ -611,17 +628,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
 
 
         };
-        const sendFrameworkUATAPIAuthenticate = async () => {
-
-            setBtnAuthenticateLoading("loading...");
-            setAuthenticateApiResponse("");
-            const {response} = await runServerless({name: "frameworkApiUATAuthenticate", parameters: {}});
-
-            setAuthenticateApiResponse(JSON.stringify(response));
-            setBtnAuthenticateLoading("Authenticate with UAT Framework API");
-
-        };
-        const handleAddressSelect = async (placeId) => {
+        const handleAddressSelect = async (placeId, description) => {
             try {
 
                 setIsAddressSelectedLoading(true);
@@ -631,7 +638,10 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 });
                 setIsAddressSelectedLoading(false);
                 const addressDetails = response.result;
-                console.log(addressDetails.address_components)
+                console.log('buyer current address')
+                console.log(addressDetails)
+                console.log('description')
+                console.log(description)
                 const subpremise = addressDetails.address_components.find((comp) => comp.types.includes("subpremise"))?.long_name;
                 const streetNumber = addressDetails.address_components.find((comp) => comp.types.includes("street_number"))?.long_name;
                 const combinedStreetNumber = subpremise ? `${subpremise}/${streetNumber}` : streetNumber;
@@ -640,7 +650,19 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 const state = addressDetails.address_components.find((comp) => comp.types.includes("administrative_area_level_1"))?.short_name;
                 const postcode = addressDetails.address_components.find((comp) => comp.types.includes("postal_code"))?.long_name;
 
-                handleBuyerChange('Buyer_Info_Street_Number', combinedStreetNumber || "")
+
+                const componentsToRemove = [
+                    combinedStreetNumber,
+                    streetName,
+                    suburb,
+                    state,
+                    postcode
+                ].filter(Boolean);
+
+                const finalStreetNumber = combinedStreetNumber ?? generateStreetNumber(componentsToRemove, description);
+                console.log('finalStreetNumber:', finalStreetNumber);
+
+                handleBuyerChange('Buyer_Info_Street_Number', finalStreetNumber || "")
                 handleBuyerChange('Buyer_Info_Street_Name', streetName || "")
                 handleBuyerChange('Buyer_Info_Suburb', suburb || "")
                 handleBuyerChange('Buyer_Info_State', state || "")
@@ -652,6 +674,32 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 console.error("Error fetching place details", error);
             }
         };
+
+        const cleanName = (name) => {
+            if(name){
+                return (name).replace(/[^a-zA-Z\s]/g, '')
+            }
+            return '';
+        }
+
+
+        const generateStreetNumber = (componentsToRemove, description) => {
+
+            let updatedDescription = description
+            componentsToRemove.forEach((component) => {
+                if (component) {
+                    // Use a regular expression to remove the component (ensure we don't leave extra spaces)
+                    const regex = new RegExp(`\\b${component}\\b`, 'g');
+                    updatedDescription = updatedDescription.replace(regex, '').trim();
+                }
+            });
+
+            console.log('Updated Description:', updatedDescription);
+            const firstRemainingWord = updatedDescription.split(/\s+/).find(word => word.trim() !== "");
+            console.log('First Remaining Word:', firstRemainingWord);
+            return firstRemainingWord;
+
+        }
         const handleDevAddressSelect = async (placeId) => {
             try {
 
@@ -844,7 +892,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 {buyerAddressSuggestions.map((suggestion) => (
                                     <Link
                                         key={suggestion.place_id}
-                                        onClick={() => handleAddressSelect(suggestion.place_id)}
+                                        onClick={() => handleAddressSelect(suggestion.place_id, suggestion.description)}
                                     >
                                         {suggestion.description}
                                     </Link>
