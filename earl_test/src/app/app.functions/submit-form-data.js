@@ -65,6 +65,33 @@ async function getOwner(user){
     return null;
 }
 
+function unixToString(unixDate, name = '') {
+    if (name) {
+        console.log("++++++++++")
+        console.log(name)
+        console.log(unixDate)
+    }
+    if (!unixDate) {
+        return;
+    }
+    const date = new Date(parseFloat(unixDate));
+    const baseDate = {
+        year: date.getUTCFullYear(),
+        month: date.getUTCMonth(),
+        date: date.getUTCDate()
+    };
+    if (name) {
+        console.log(date)
+        console.log(baseDate)
+    }
+    const formattedDate = `${String(baseDate.date).padStart(2, '0')}/${String(baseDate.month + 1).padStart(2, '0')}/${baseDate.year}`;
+    if (name) {
+        console.log(formattedDate)
+        console.log("++++++++++")
+    }
+    return formattedDate;
+}
+
 // Function to create a line item and associate with quote
 async function createDeposit({ buyer, development, deposit, system, user, currentBuyer, currentBuyerId, currentDepositId, crm}) {
 
@@ -129,9 +156,10 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
             state: development.Development_Address_State,
             postcode:development.Development_Address_Postcode,
 
-            // site_start_: (development.Development_Address_Site_Start_Text),
-            site_start__text_: (development.Development_Address_Site_Start_Text),
+            site_start_: development.Development_Address_Site_Start_Text,
+            site_start__text_: unixToString(development.Development_Address_Site_Start_Text),
             land_settlement: (development.Development_Address_Site_Land_Settlement_Text),
+            land_settlement__text_: unixToString(development.Development_Address_Site_Land_Settlement_Text),
 
             is_the_deposit_from_buyer_1_or_buyer_2_:deposit.Deposit_Who_Paying_Deposit,
             range:deposit.Deposit_Range,

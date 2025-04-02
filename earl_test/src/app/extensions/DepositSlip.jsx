@@ -291,6 +291,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             runServerless({name: "fetchBuyerDetails", parameters: {hs_object_id: currentBuyerId}}).then((resp) => {
                 // console.log(resp);
                 if (resp.status === "SUCCESS" && resp.response.data) {
+                    console.log('fetchBuyerDetails')
                     console.log(resp.response)
                     setCurrentBuyer(resp.response.data.CRM.deal);
 
@@ -311,8 +312,11 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                         console.log("")
                         console.log("")
                         console.log("======= LOADING FROM deals========")
+                        console.log('Initial Fee')
                         console.log(initialDeposit)
+                        console.log('Prelim Fee')
                         console.log(prelimDeposit)
+                        console.log('Customization Fee')
                         console.log(customizationFees)
                         console.log("==================")
                         console.log("")
@@ -408,9 +412,20 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 handleDevelopmentChange('Development_Address_Suburb', currentDeposit.suburb);
                 handleDevelopmentChange('Development_Address_State', currentDeposit.state?.value);
                 handleDevelopmentChange('Development_Address_Postcode', currentDeposit.postcode);
-
-                handleDevelopmentChange('Development_Address_Site_Start', formattedToBase(currentDeposit.site_start__text_));
-                handleDevelopmentChange('Development_Address_Site_Start_Text', currentDeposit.site_start__text_);
+                var siteStart = '';
+                var siteStartText = '';
+                if(currentDeposit.site_start_){
+                    siteStart = unixToBase(currentDeposit.site_start_)
+                }else if(currentDeposit.site_start__text_){
+                    siteStart = formattedToBase(currentDeposit.site_start__text_)
+                }
+                if(currentDeposit.site_start_ == null && currentDeposit.site_start__text_ != null){
+                    siteStartText = baseToUnix(formattedToBase(currentDeposit.site_start__text_))
+                }else{
+                    siteStartText = currentDeposit.site_start_
+                }
+                handleDevelopmentChange('Development_Address_Site_Start', siteStart);
+                handleDevelopmentChange('Development_Address_Site_Start_Text', siteStartText);
                 handleDevelopmentChange('Development_Address_Site_Land_Settlement', unixToBase(currentDeposit.land_settlement));
                 handleDevelopmentChange('Development_Address_Site_Land_Settlement_Text', currentDeposit.land_settlement);
 
@@ -430,22 +445,22 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 handleDepositChange('Deposit_Sales_Accept_Forecast_Text', currentDeposit.sales_accept_forecast);
                 handleDepositChange('Deposit_Comment', currentDeposit.comment);
 
-                console.log("teams")
-                console.log(teams)
+                // console.log("teams")
+                // console.log(teams)
                 const populateTeam = teams.filter((item) => {
                     const itemLabel = item['name'];
-                    console.log(item)
-                    console.log(itemLabel)
+                    // console.log(item)
+                    // console.log(itemLabel)
                     if(itemLabel && currentDeposit.selected_team){
                         const smallLabel = (itemLabel).toLowerCase()
-                        console.log(smallLabel)
-                        console.log((currentDeposit.selected_team).toLowerCase())
-                        console.log(smallLabel === (currentDeposit.selected_team).toLowerCase())
+                        // console.log(smallLabel)
+                        // console.log((currentDeposit.selected_team).toLowerCase())
+                        // console.log(smallLabel === (currentDeposit.selected_team).toLowerCase())
                         return smallLabel === (currentDeposit.selected_team).toLowerCase();
                     }
                 });
-                console.log("populateTeam")
-                console.log(populateTeam)
+                // console.log("populateTeam")
+                // console.log(populateTeam)
                 if (populateTeam && populateTeam.length > 0) {
                     setSystem(prevSystem => ({
                         ...prevSystem,
@@ -458,6 +473,17 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                 setCurrentDepositLoaded(true);
             }
         }, [currentDeposit, optionsLoaded]);
+        useEffect(() => {
+
+            if (currentDeposit && optionsLoaded) {
+                handleDevelopmentChange('Development_Developer', filterValuePerLabel(developers, currentDeposit.selected_developer));
+                handleDevelopmentChange('Development_Developer_Desc', currentDeposit.developer_description);
+
+                handleDevelopmentChange('Development_Estate', filterValuePerLabel(estates, currentDeposit.selected_estate));
+                handleDevelopmentChange('Development_Estate_Desc', currentDeposit.estate_description);
+
+            }
+        }, [currentDeposit, optionsLoaded, developers, estates])
 
         useEffect(() => {
             if (currentDeposit && optionsLoaded) {
@@ -551,28 +577,28 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
         const handleDevelopmentRegionChange = (region) => {
             setDevelopment({...development, Development_Region: region})
             const selectedRegion = regions.find(item => item.value === region);
-            console.log("Regions")
-            console.log(regions)
-            console.log(selectedRegion)
+            // console.log("Regions")
+            // console.log(regions)
+            // console.log(selectedRegion)
 
             // If the region is found, extract the label
             const regionLabel = selectedRegion ? selectedRegion.value : '';
-            console.log(regionLabel)
+            // console.log(regionLabel)
 
             if (region) {
-                console.log("testsss")
-                console.log(region)
-                console.log(initialTeam)
+                // console.log("testsss")
+                // console.log(region)
+                // console.log(initialTeam)
 
                 const filteredTeams = initialTeam.filter((item) => {
                     const itemLabel = item['name'];
-                    console.log(itemLabel)
+                    // console.log(itemLabel)
                     if(itemLabel){
                         const smallLabel = (itemLabel).toLowerCase()
                         return smallLabel.startsWith((regionLabel).toLowerCase());
                     }
                 });
-                console.log(filteredTeams)
+                // console.log(filteredTeams)
                 setTeams(filteredTeams || []);
                 setSystem(prevState => ({
                     ...prevState, System_Team: ""}))
@@ -907,6 +933,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     label="Street Number"
                                     value={buyer.Buyer_Info_Street_Number}
                                     readOnly={isAddressManually}
+                                    required={true}
                                     onChange={(val) => handleBuyerChange("Buyer_Info_Street_Number", val)}
                                 />
                                 <Input
@@ -914,6 +941,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     label="Street Name"
                                     value={buyer.Buyer_Info_Street_Name}
                                     readOnly={isAddressManually}
+                                    required={true}
                                     onChange={(val) => handleBuyerChange("Buyer_Info_Street_Name", val)}
                                 />
                                 <Input
@@ -921,6 +949,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     label="Suburb"
                                     value={buyer.Buyer_Info_Suburb}
                                     readOnly={isAddressManually}
+                                    required={true}
                                     onChange={(val) => handleBuyerChange("Buyer_Info_Suburb", val)}
                                 />
                                 <Input
@@ -928,6 +957,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     label="State"
                                     value={buyer.Buyer_Info_State}
                                     readOnly={isAddressManually}
+                                    required={true}
                                     onChange={(val) => handleBuyerChange("Buyer_Info_State", val)}
 
                                 />
@@ -936,6 +966,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                     label="Postcode"
                                     value={buyer.Postcode}
                                     readOnly={isAddressManually}
+                                    required={true}
                                     onChange={(val) => handleBuyerChange("Postcode", val)}
                                 />
                             </>
@@ -1222,7 +1253,7 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
                                 name="Development_Address_Site_Start"
                                 onChange={(val) => {
                                     handleDevelopmentChange("Development_Address_Site_Start", val)
-                                    handleDevelopmentChange("Development_Address_Site_Start_Text", baseToFormatted(val))
+                                    handleDevelopmentChange("Development_Address_Site_Start_Text", baseToUnix(val))
                                 }}
                                 value={development.Development_Address_Site_Start || null}
                                 format="L"
@@ -1522,6 +1553,31 @@ const Extension = ({context, runServerless, sendAlert, fetchProperties, actions,
             {
                 name: "Buyer_1_Mobile",
                 label: "Mobile",
+                required: true,
+            },
+            {
+                name: "Buyer_Info_Street_Number",
+                label: "Buyer Street Number",
+                required: true,
+            },
+            {
+                name: "Buyer_Info_Street_Name",
+                label: "Buyer Street Name",
+                required: true,
+            },
+            {
+                name: "Buyer_Info_Suburb",
+                label: "Buyer Suburb",
+                required: true,
+            },
+            {
+                name: "Buyer_Info_State",
+                label: "Buyer State",
+                required: true,
+            },
+            {
+                name: "Postcode",
+                label: "Postcode",
                 required: true,
             },
             // Buyer 2 Fields
