@@ -12,6 +12,7 @@ export const rangeOptions = [
     {label: 'Elite', value: 'Elite'},
     {label: 'Emerge', value: 'Emerge'},
     {label: 'Masterpiece', value: 'Masterpiece'},
+    {label: 'Medium Density', value: 'Medium Density'},
 ];
 export const depositSourceOptions = [
     {label: 'Newspaper', value: 'Newspaper'},

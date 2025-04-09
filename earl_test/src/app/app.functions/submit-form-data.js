@@ -203,6 +203,7 @@ async function createDeposit({ buyer, development, deposit, system, user, curren
         createdDeposit =  await hubspotClient.crm.objects.basicApi.update('2-35672036', currentDepositId, request);
     }else{
         request.properties.simonds_representative = parseInt(ownerId);
+        request.properties.hubspot_owner_id = parseInt(ownerId);
         createdDeposit =  await hubspotClient.crm.objects.basicApi.create('2-35672036', request);
     }
 
